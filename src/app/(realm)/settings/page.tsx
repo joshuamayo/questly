@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import { PageBanner } from "@/components/art/PageBanner";
 import { SettingsBoard } from "@/components/settings/SettingsBoard";
 import { FOCUS_XP, MAIN_QUEST_CAP, QUEST_REWARDS, BOSS_BOUNTY, RESPAWN_THRESHOLDS } from "@/game/config/balance";
+import { getSignedInUser } from "@/server/auth/session";
 import { loadBalanceView, loadCharacterSheet, loadSettingsView, loadToday } from "@/server/queries";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const [sheet, settings, balance, today] = await Promise.all([loadCharacterSheet(), loadSettingsView(), loadBalanceView(), loadToday()]);
+  const [sheet, settings, balance, today, user] = await Promise.all([loadCharacterSheet(), loadSettingsView(), loadBalanceView(), loadToday(), getSignedInUser()]);
   return (
     <>
       <PageBanner slot="settings" title="Settings" tagline="Shape how your adventure fits your life." />
       <SettingsBoard
         displayName={sheet.displayName}
+        signedInEmail={user?.email ?? null}
         settings={settings}
         balance={balance}
         defaults={{

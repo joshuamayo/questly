@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { GameRuleError } from "@/game/errors";
 import { getDb, type Db } from "../db/client";
 import { syncProgression } from "../meta/sync";
-import { resolveCurrentCharacterId } from "../queries/character-sheet";
+import { resolveCurrentCharacterId } from "../auth/session";
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 

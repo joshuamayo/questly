@@ -7,6 +7,8 @@ import { TooltipProvider } from "@/components/ui/Tooltip";
 import { TimezoneSync } from "@/components/system/TimezoneSync";
 import { MotionPreference } from "@/components/system/MotionPreference";
 import { CharacterNotFoundError } from "@/game/errors";
+import { redirect } from "next/navigation";
+import { NotSignedInError } from "@/server/auth/session";
 import { ArtProvider } from "@/components/art/ArtContext";
 import { ICON_ART_SLOTS } from "@/components/icons/art-slots";
 import { artUrl } from "@/server/art";
@@ -19,6 +21,7 @@ export default async function RealmLayout({ children }: { children: React.ReactN
     sheet = await loadCharacterSheet();
   } catch (error) {
     if (error instanceof CharacterNotFoundError) return <NoCharacterState />;
+    if (error instanceof NotSignedInError) redirect("/login");
     throw error;
   }
   const status = toCharacterStatus(sheet);

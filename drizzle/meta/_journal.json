@@ -36,6 +36,13 @@
       "when": 1791134568758,
       "tag": "0004_rewards_recovery_planning",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791144929275,
+      "tag": "0005_enable_row_level_security",
+      "breakpoints": true
     }
   ]
 }

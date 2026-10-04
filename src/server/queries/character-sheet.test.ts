@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { xpForLevel } from "@/game/xp";
 import { awardGp, awardQuestPoints, awardXp } from "../progression/service";
 import { createTestCharacter } from "../testing/test-db";
-import { getCharacterSheet, getRecentChronicle, getRecentXp, resolveCurrentCharacterId } from "./character-sheet";
+import { getCharacterSheet, getRecentChronicle, getRecentXp, firstCharacterId } from "./character-sheet";
 
 let ctx: Awaited<ReturnType<typeof createTestCharacter>>;
 beforeEach(async () => {
@@ -39,7 +39,7 @@ describe("character sheet", () => {
   });
 
   it("resolves the current character and narrates real events only", async () => {
-    expect(await resolveCurrentCharacterId(ctx.db)).toBe(ctx.character.id);
+    expect(await firstCharacterId(ctx.db)).toBe(ctx.character.id);
     await awardXp(ctx.db, ctx.character.id, "home", xpForLevel(3), { sourceType: "SYSTEM" });
     const chronicle = await getRecentChronicle(ctx.db, ctx.character.id);
     expect(chronicle.map((e) => e.text).sort()).toEqual(["Home reached Level 3.", "Your adventure began."]);

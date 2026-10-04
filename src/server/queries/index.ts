@@ -10,7 +10,6 @@ import {
   getCharacterSheet,
   getRecentChronicle,
   getRecentXp,
-  resolveCurrentCharacterId,
   toCharacterStatus,
 } from "./character-sheet";
 
@@ -18,6 +17,7 @@ export { toCharacterStatus } from "./character-sheet";
 import { listCollection, listCombatAchievements, listTitlesAndCapes } from "./meta";
 import { diaryClaimHistory, getDiary } from "../diaries/service";
 import { viewerToday } from "../today";
+import { resolveCurrentCharacterId } from "../auth/session";
 import { loadSettings, loadBalance } from "../settings/service";
 import { getRewardShop } from "../rewards/service";
 import { getStreaks } from "../streaks/service";

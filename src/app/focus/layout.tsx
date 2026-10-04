@@ -5,6 +5,8 @@ import { StatusBar } from "@/components/shell/StatusBar";
 import { Wordmark } from "@/components/shell/Wordmark";
 import { NoCharacterState } from "@/components/system/NoCharacterState";
 import { CharacterNotFoundError } from "@/game/errors";
+import { redirect } from "next/navigation";
+import { NotSignedInError } from "@/server/auth/session";
 import { artUrl } from "@/server/art";
 import { loadCharacterSheet, loadSettingsView, toCharacterStatus, type CharacterSheet } from "@/server/queries";
 import { MotionPreference } from "@/components/system/MotionPreference";
@@ -20,6 +22,7 @@ export default async function FocusLayout({ children }: { children: React.ReactN
     sheet = await loadCharacterSheet();
   } catch (error) {
     if (error instanceof CharacterNotFoundError) return <NoCharacterState />;
+    if (error instanceof NotSignedInError) redirect("/login");
     throw error;
   }
   const iconArt = Object.fromEntries(ICON_ART_SLOTS.map((slot) => [slot, artUrl(slot)]));

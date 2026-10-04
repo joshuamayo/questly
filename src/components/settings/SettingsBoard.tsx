@@ -52,6 +52,7 @@ function Saved({ show }: { show: boolean }) {
 
 export function SettingsBoard({
   displayName,
+  signedInEmail,
   settings,
   balance,
   defaults,
@@ -59,6 +60,7 @@ export function SettingsBoard({
   today,
 }: {
   displayName: string;
+  signedInEmail: string | null;
   settings: CharacterSettings;
   balance: EffectiveBalance;
   defaults: Defaults;
@@ -68,7 +70,7 @@ export function SettingsBoard({
   return (
     <div className="grid items-start gap-4 xl:grid-cols-2">
       <div className="flex min-w-0 flex-col gap-4">
-        <ProfileSection displayName={displayName} />
+        <ProfileSection displayName={displayName} signedInEmail={signedInEmail} />
         <ScheduleSection settings={settings} today={today} />
       </div>
       <div className="flex min-w-0 flex-col gap-4">
@@ -99,7 +101,7 @@ export function SettingsBoard({
   );
 }
 
-function ProfileSection({ displayName }: { displayName: string }) {
+function ProfileSection({ displayName, signedInEmail }: { displayName: string; signedInEmail: string | null }) {
   const router = useRouter();
   const { pending, error, run } = useAction();
   const [name, setName] = useState(displayName);
@@ -136,6 +138,16 @@ function ProfileSection({ displayName }: { displayName: string }) {
         </Link>
         .
       </p>
+      {signedInEmail && (
+        <form action="/auth/signout" method="post" className="mt-4 flex flex-wrap items-center gap-3 border-t border-stone-700 pt-4">
+          <span className="text-sm text-text-secondary">
+            Signed in as <span className="text-text-primary">{signedInEmail}</span>
+          </span>
+          <GameButton type="submit" size="sm" variant="ghost">
+            Sign Out
+          </GameButton>
+        </form>
+      )}
     </Section>
   );
 }

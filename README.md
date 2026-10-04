@@ -29,6 +29,12 @@
   setting on top of the OS preference; viewer-local dates via the browser timezone; Focus Mode loading state.
   Audio is intentionally not included in V1 (optional per the constitution).
 
+## Going live
+
+See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — Vercel + Supabase, with email sign-in links restricted to
+`QUESTLY_ALLOWED_EMAILS`. Without Supabase settings Questly runs in local single-player mode (no sign-in);
+production builds refuse that mode unless `QUESTLY_ALLOW_NO_AUTH=1`.
+
 ## Quick start
 
 ```bash

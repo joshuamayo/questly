@@ -50,7 +50,8 @@ export type CharacterStatus = Pick<
  * character is the player. This is the seam where authentication (e.g.
  * Supabase Auth → characters.auth_subject) plugs in later.
  */
-export async function resolveCurrentCharacterId(db: Db): Promise<string> {
+/** The oldest character — local single-player mode (no sign-in). */
+export async function firstCharacterId(db: Db): Promise<string> {
   const [row] = await db.select({ id: characters.id }).from(characters).orderBy(asc(characters.createdAt)).limit(1);
   if (!row) throw new CharacterNotFoundError();
   return row.id;

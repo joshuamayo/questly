@@ -1,5 +1,7 @@
 /**
- * Database CLI: `tsx scripts/db.ts <migrate|seed|seed-demo|reset|reconcile>`.
+ * Database CLI: `tsx scripts/db.ts <migrate|deploy|seed|seed-demo|reset|reconcile>`.
+ * `deploy` (used by the Vercel build) applies migrations and seed content only;
+ * characters are created on first sign-in.
  * Wrapped by npm scripts (see package.json / README).
  */
 
@@ -30,6 +32,15 @@ async function main() {
 
   const { db, close } = await openDatabase(config);
   try {
+    if (command === "deploy") {
+      if (config.driver !== "postgres") {
+        console.log("• deploy: DATABASE_URL is not set; skipping database setup.");
+      } else {
+        await runMigrations(db, config);
+        await seedContent(db);
+        console.log(`✓ Migrations applied and content seeded — ${where}`);
+      }
+    }
     if (["migrate", "setup", "reset"].includes(command)) {
       await runMigrations(db, config);
       console.log(`✓ Migrations applied — ${where}`);
@@ -56,8 +67,8 @@ async function main() {
       console.log(JSON.stringify(report, null, 2));
       if (!report.consistent) process.exitCode = 1;
     }
-    if (!["migrate", "seed", "setup", "seed-demo", "reset", "reconcile"].includes(command)) {
-      console.error("Usage: tsx scripts/db.ts <migrate|seed|setup|seed-demo|reset|reconcile>");
+    if (!["migrate", "deploy", "seed", "setup", "seed-demo", "reset", "reconcile"].includes(command)) {
+      console.error("Usage: tsx scripts/db.ts <migrate|deploy|seed|setup|seed-demo|reset|reconcile>");
       process.exitCode = 1;
     }
   } finally {
