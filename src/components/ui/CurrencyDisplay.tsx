@@ -7,7 +7,7 @@ export type CurrencyKind = "GP" | "QP" | "COMBAT_POINTS" | "TOTAL_LEVEL";
 
 const META: Record<CurrencyKind, { icon: SpriteName; short: string; long: string; color: string }> = {
   GP: { icon: "gp", short: "GP", long: "GP", color: "text-gold-200" },
-  QP: { icon: "qp", short: "QP", long: "Quest Points", color: "text-blue-300" },
+  QP: { icon: "qp", short: "QP", long: "Quest Points", color: "text-parchment-100" },
   COMBAT_POINTS: { icon: "combat-points", short: "CP", long: "Combat Points", color: "text-crimson-300" },
   TOTAL_LEVEL: { icon: "total-level", short: "Total", long: "Total Level", color: "text-gold-100" },
 };
@@ -41,7 +41,7 @@ export function CurrencyDisplay({
         <PixelIcon name={m.icon} size={36} />
         <div className="leading-tight">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-text-muted">{m.long}</p>
-          <p className={cx("q-display text-2xl tabular-nums", m.color)}>
+          <p className={cx("q-title text-2xl tabular-nums", m.color)}>
             {shown}
             {max ? <span className="text-sm text-text-muted"> / {formatNumber(max)}</span> : null}
           </p>

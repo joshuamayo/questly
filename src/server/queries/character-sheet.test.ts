@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { xpForLevel } from "@/game/xp";
 import { awardGp, awardQuestPoints, awardXp } from "../progression/service";
 import { createTestCharacter } from "../testing/test-db";
-import { getCharacterSheet, getRecentChronicle, resolveCurrentCharacterId } from "./character-sheet";
+import { getCharacterSheet, getRecentChronicle, getRecentXp, resolveCurrentCharacterId } from "./character-sheet";
 
 let ctx: Awaited<ReturnType<typeof createTestCharacter>>;
 beforeEach(async () => {
@@ -43,5 +43,21 @@ describe("character sheet", () => {
     await awardXp(ctx.db, ctx.character.id, "home", xpForLevel(3), { sourceType: "SYSTEM" });
     const chronicle = await getRecentChronicle(ctx.db, ctx.character.id);
     expect(chronicle.map((e) => e.text).sort()).toEqual(["Home reached Level 3.", "Your adventure began."]);
+  });
+});
+
+describe("recent XP", () => {
+  it("lists real XP transactions newest first with a player-facing source", async () => {
+    await awardXp(ctx.db, ctx.character.id, "creator", 100, { sourceType: "SYSTEM" });
+    await awardXp(ctx.db, ctx.character.id, "focus", 250, {
+      sourceType: "QUEST",
+      metadata: { questTitle: "Deep Work Sprint" },
+    });
+    await awardGp(ctx.db, ctx.character.id, 5, { sourceType: "QUEST" });
+    const entries = await getRecentXp(ctx.db, ctx.character.id);
+    expect(entries.map((e) => [e.skillKey, e.amount, e.source])).toEqual([
+      ["focus", 250, "Deep Work Sprint"],
+      ["creator", 100, "Granted"],
+    ]);
   });
 });

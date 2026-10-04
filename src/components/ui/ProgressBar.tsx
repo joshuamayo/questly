@@ -18,6 +18,7 @@ export function ProgressBar({
   label,
   valueText,
   tone = "moss",
+  color,
   size = "md",
   showValue = false,
   className,
@@ -27,6 +28,8 @@ export function ProgressBar({
   label: string;
   valueText?: string;
   tone?: Tone;
+  /** Custom fill color token (e.g. a Skill color). Overrides `tone`. */
+  color?: string;
   size?: "sm" | "md" | "lg";
   showValue?: boolean;
   className?: string;
@@ -48,14 +51,19 @@ export function ProgressBar({
         <div
           className={cx(
             "h-full transition-[width] duration-[var(--duration-fill)] ease-[var(--ease-game)]",
-            FILL[tone],
+            !color && FILL[tone],
           )}
-          style={{ width: `${pct}%` }}
+          style={{
+            width: `${pct}%`,
+            ...(color && {
+              backgroundImage: `linear-gradient(180deg, color-mix(in oklab, ${color}, white 35%), ${color} 50%, color-mix(in oklab, ${color}, black 30%))`,
+            }),
+          }}
         />
         {/* Segment notches give the bar its game-meter feel. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_calc(10%-1px),rgb(0_0_0/0.45)_calc(10%-1px)_10%)]"
+          className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_calc(10%-1px),rgb(0_0_0/0.35)_calc(10%-1px)_10%)]"
         />
       </div>
       {showValue && <span className="min-w-[3.5ch] text-right text-sm tabular-nums text-text-secondary">{text}</span>}

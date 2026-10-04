@@ -160,3 +160,23 @@ export function applyXpGain(
     levelsReached,
   };
 }
+
+export type MasteryProgress = {
+  /** XP threshold for the maximum level (99). */
+  maxLevelXp: number;
+  /** XP still needed to reach the maximum level (0 once reached). */
+  xpRemaining: number;
+  /** 0–100 toward the maximum level, rounded down to one decimal. */
+  percent: number;
+};
+
+/** Progress toward Level 99 (the Skill Cape), from total XP. */
+export function getMasteryProgress(xp: number, curve: XpCurve = DEFAULT_XP_CURVE): MasteryProgress {
+  assertValidXp(xp);
+  const maxLevelXp = curve.thresholds[curve.config.maxLevel];
+  return {
+    maxLevelXp,
+    xpRemaining: Math.max(0, maxLevelXp - xp),
+    percent: Math.min(100, Math.floor((xp / maxLevelXp) * 1000) / 10),
+  };
+}

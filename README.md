@@ -79,5 +79,9 @@ src/
 drizzle/               Versioned SQL migrations
 ```
 
+Visual direction follows the approved mockups in `docs/mockups/` (look and feel only — the spec governs
+behavior). Artwork slots are listed in `docs/ART_ASSETS.md`: drop a file at its path under `public/art/` and it
+replaces the code-drawn placeholder automatically.
+
 Design tokens live in `src/app/globals.css` (`@theme`). Tailwind's default palette, radii, and shadows are
 cleared, so components can only use Questly tokens.

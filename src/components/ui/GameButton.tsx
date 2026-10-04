@@ -6,25 +6,25 @@ type Variant = "primary" | "secondary" | "ghost";
 type Size = "sm" | "md" | "lg";
 
 const BASE =
-  "q-display inline-flex items-center justify-center gap-2 uppercase select-none border-2 rounded-sm " +
+  "q-title inline-flex items-center justify-center gap-2 select-none border rounded-sm " +
   "transition-[transform,filter,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-game)] " +
   "active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 disabled:active:translate-y-0";
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "border-gold-700 text-timber-950 shadow-raised hover:brightness-110 " +
-    "bg-[linear-gradient(180deg,var(--color-gold-200),var(--color-gold-400)_55%,var(--color-gold-500))] " +
-    "[box-shadow:inset_0_1px_0_var(--color-gold-100),inset_0_-2px_0_var(--color-gold-600),var(--shadow-raised)]",
+    "border-gold-700 text-timber-950 hover:brightness-110 " +
+    "bg-[linear-gradient(180deg,var(--color-gold-200),var(--color-gold-400)_45%,var(--color-gold-500))] " +
+    "[box-shadow:inset_0_0_0_1px_var(--color-gold-100),inset_0_-3px_0_var(--color-gold-600),0_0_0_1px_var(--color-border-dark),var(--shadow-raised)]",
   secondary:
-    "q-stone border-border-dark text-gold-200 shadow-bevel hover:text-gold-100 hover:brightness-125 " +
-    "[box-shadow:inset_0_0_0_1px_rgb(217_164_65/0.35),var(--shadow-bevel),var(--shadow-raised)]",
-  ghost: "border-transparent text-gold-300 hover:text-gold-100 hover:bg-stone-800/60",
+    "border-blue-600 bg-stone-850 text-text-primary hover:border-blue-400 hover:bg-stone-800 " +
+    "[box-shadow:inset_0_1px_0_rgb(255_255_255/0.05),var(--shadow-raised)]",
+  ghost: "border-transparent text-blue-300 hover:text-blue-300 hover:underline underline-offset-4",
 };
 
 const SIZES: Record<Size, string> = {
-  sm: "min-h-9 px-3 text-xs tracking-[0.12em]",
-  md: "min-h-11 px-5 text-sm tracking-[0.14em]",
-  lg: "min-h-13 px-7 text-base tracking-[0.16em]",
+  sm: "min-h-9 px-3 text-sm",
+  md: "min-h-11 px-5 text-base",
+  lg: "min-h-13 px-7 text-lg",
 };
 
 type Common = { variant?: Variant; size?: Size; icon?: ReactNode; className?: string; children: ReactNode };

@@ -19,6 +19,7 @@ export function GamePanel({
   as: Tag = "div",
   gold = false,
   rivets = false,
+  corners = true,
   className,
   children,
   labelledBy,
@@ -28,6 +29,8 @@ export function GamePanel({
   as?: ElementType;
   gold?: boolean;
   rivets?: boolean;
+  /** Gold corner brackets (default on). */
+  corners?: boolean;
   className?: string;
   children: ReactNode;
   labelledBy?: string;
@@ -39,6 +42,14 @@ export function GamePanel({
       aria-labelledby={labelledBy}
       {...rest}
     >
+      {corners && (
+        <>
+          <span aria-hidden className="q-corner q-corner-tl" />
+          <span aria-hidden className="q-corner q-corner-tr" />
+          <span aria-hidden className="q-corner q-corner-bl" />
+          <span aria-hidden className="q-corner q-corner-br" />
+        </>
+      )}
       {children}
     </Tag>
   );

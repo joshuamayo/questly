@@ -6,9 +6,10 @@ export const metadata: Metadata = { title: "Collection Log" };
 export default function Page() {
   return (
     <SystemPlaceholder
+      slot="collection-log"
       title="Collection Log"
       icon="collection"
-      tagline="A Museum of Accomplishments"
+      tagline="A museum of everything you have accomplished."
       description="The Collection Log is a permanent museum of meaningful accomplishments — a grid of collectible slots, some hidden until discovered."
       features={[
         "Fill collectible slots across six categories",

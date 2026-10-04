@@ -1,4 +1,9 @@
+"use client";
+
+import Image from "next/image";
+import { useArt } from "@/components/art/ArtContext";
 import { cx } from "@/lib/cx";
+import { SPRITE_ART_SLOTS } from "./art-slots";
 import { SPRITE_PALETTE, SPRITES, type SpriteName } from "./sprites";
 
 type Run = { x: number; y: number; w: number };
@@ -57,7 +62,7 @@ export function PixelGrid({
 }
 
 /**
- * Pixel-art icon. Decorative by default (hidden from assistive tech); pass
+ * Pixel-art icon (or its delivered artwork, if present). Decorative by default (hidden from assistive tech); pass
  * `label` when the icon carries meaning on its own.
  */
 export function PixelIcon({
@@ -71,6 +76,22 @@ export function PixelIcon({
   label?: string;
   className?: string;
 }) {
+  const url = useArt(SPRITE_ART_SLOTS[name]);
+  if (url) {
+    return (
+      <span className={cx("relative inline-flex shrink-0", className)} style={{ width: size, height: size }}>
+        <Image
+          src={url}
+          alt={label ?? ""}
+          aria-hidden={label ? undefined : true}
+          fill
+          unoptimized
+          sizes={`${size}px`}
+          className="q-pixel object-contain"
+        />
+      </span>
+    );
+  }
   return (
     <span className={cx("inline-flex shrink-0", className)} style={{ width: size, height: size }}>
       <PixelGrid rows={SPRITES[name]} palette={SPRITE_PALETTE} title={label} className="h-full w-full" />

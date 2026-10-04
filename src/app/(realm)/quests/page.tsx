@@ -6,9 +6,10 @@ export const metadata: Metadata = { title: "Quests" };
 export default function Page() {
   return (
     <SystemPlaceholder
+      slot="quests"
       title="Quests"
       icon="quests"
-      tagline="The Quest Journal"
+      tagline="Choose your next adventure."
       description="Quests are the heart of Questly: meaningful real-world goals framed as adventures, each tied to a Skill and a difficulty that determines its rewards."
       features={[
         "Create & Accept Quests with rewards derived from difficulty",

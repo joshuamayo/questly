@@ -1,78 +1,145 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AvatarPlinth } from "@/components/character/AvatarSprite";
+import { PageBanner } from "@/components/art/PageBanner";
+import { CharacterFull } from "@/components/character/CharacterArt";
 import { PixelIcon } from "@/components/icons/PixelIcon";
+import type { SpriteName } from "@/components/icons/sprites";
 import { SkillIcon } from "@/components/icons/SkillIcon";
-import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
+import { skillColor } from "@/components/skills/skill-style";
 import { GamePanel } from "@/components/ui/GamePanel";
 import { LocalDate } from "@/components/ui/LocalDate";
-import { SealedSlot } from "@/components/ui/LockedState";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { StatBadge } from "@/components/ui/StatBadge";
+import { totalLevelMilestones } from "@/game/character";
+import { cx } from "@/lib/cx";
 import { formatNumber } from "@/lib/format";
+import { artUrl } from "@/server/art";
 import { loadCharacterSheet } from "@/server/queries";
 
 export const metadata: Metadata = { title: "Character" };
 
+function StatTile({ icon, label, value }: { icon: SpriteName; label: string; value: number }) {
+  return (
+    <div className="q-tile flex flex-col items-center gap-1 px-2 py-3 text-center">
+      <PixelIcon name={icon} size={36} />
+      <dd className="q-title text-2xl leading-none tabular-nums text-text-primary">{formatNumber(value)}</dd>
+      <dt className="text-sm text-text-secondary">{label}</dt>
+    </div>
+  );
+}
+
+function SealedPanel({ id, icon, title, message }: { id: string; icon: SpriteName; title: string; message: string }) {
+  return (
+    <GamePanel as="section" labelledBy={id} className="p-4">
+      <SectionHeader id={id} icon={<PixelIcon name={icon} size={22} />} title={title} divider />
+      <div className="mt-3 flex items-center gap-3">
+        <div className="q-well flex size-14 shrink-0 items-center justify-center border border-stone-700">
+          <PixelIcon name={icon} size={30} className="opacity-50 grayscale" />
+        </div>
+        <div>
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-muted">
+            <PixelIcon name="lock" size={12} /> Not yet built
+          </p>
+          <p className="text-sm text-text-secondary">{message}</p>
+        </div>
+      </div>
+    </GamePanel>
+  );
+}
+
 export default async function CharacterPage() {
   const sheet = await loadCharacterSheet();
+  const milestones = totalLevelMilestones(sheet.totalLevel);
+  const totalPct = (sheet.totalLevel / sheet.maxTotalLevel) * 100;
 
   return (
-    <div className="mx-auto max-w-7xl">
-      <SectionHeader level={1} title="Character" eyebrow="Permanent account record" />
-      <div className="q-rule my-4" />
+    <>
+      <PageBanner slot="character" title="Character Profile" tagline="Your progress, honors, and journey at a glance." />
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="flex flex-col gap-4">
+          {/* ── Identity ─────────────────────────────────────────────── */}
+          <GamePanel as="section" labelledBy="char-name" className="overflow-hidden">
+            <div className="flex flex-col md:flex-row">
+              <div className="flex shrink-0 items-end justify-center border-b border-stone-700 bg-[radial-gradient(ellipse_at_50%_35%,var(--color-stone-800),var(--color-void))] px-6 pt-5 md:w-60 md:border-b-0 md:border-r">
+                <CharacterFull avatar={sheet.avatar} name={sheet.displayName} url={artUrl("character/full")} height={250} />
+              </div>
+              <div className="flex-1 p-5">
+                <div className="flex flex-col gap-4">
+                  <div className="min-w-0">
+                    <h2 id="char-name" className="q-title q-engraved text-display-md">
+                      {sheet.displayName}
+                    </h2>
+                    <p className="q-title text-xl text-gold-200">Total Level {sheet.totalLevel}</p>
+                    <ProgressBar
+                      tone="gold"
+                      className="mt-1"
+                      value={totalPct}
+                      label="Total Level toward maximum"
+                      valueText={`${sheet.totalLevel} of ${sheet.maxTotalLevel}`}
+                    />
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {sheet.totalLevel} / {sheet.maxTotalLevel}
+                    </p>
+                    <p className="mt-3 text-sm text-text-secondary">
+                      Adventuring since <LocalDate iso={sheet.createdAt} />
+                      <br />
+                      {sheet.accountAge} · Day {formatNumber(sheet.adventureDay)}
+                    </p>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <StatTile icon="qp" label="Quest Points" value={sheet.questPoints} />
+                    <StatTile icon="combat-points" label="Combat Points" value={sheet.combatPoints} />
+                    <StatTile icon="gp" label="GP" value={sheet.gp.balance} />
+                    <StatTile icon="total-level" label="Total XP" value={sheet.totalXp} />
+                  </dl>
+                </div>
+                <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <div className="q-tile px-3 py-2">
+                    <dt className="text-sm text-gold-300">Current Title</dt>
+                    <dd className="font-bold text-text-primary">{sheet.title?.name ?? "None"}</dd>
+                  </div>
+                  <div className="q-tile px-3 py-2">
+                    <dt className="text-sm text-gold-300">Current Cape</dt>
+                    <dd className="font-bold text-text-primary">
+                      {sheet.cape?.name ?? "None"}
+                      {!sheet.cape && <span className="ml-2 text-sm font-normal text-text-muted">Skill Capes are earned at Level 99</span>}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </GamePanel>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        {/* ── Identity ──────────────────────────────────────────────────── */}
-        <GamePanel as="section" labelledBy="char-name" gold rivets className="flex flex-col items-center p-6 text-center">
-          <div className="q-well w-full border border-border-dark bg-[radial-gradient(ellipse_at_50%_30%,var(--color-stone-800),var(--color-void))] px-4 pb-4 pt-6">
-            <AvatarPlinth avatar={sheet.avatar} name={sheet.displayName} height={168} />
-          </div>
-          <h2 id="char-name" className="q-display q-engraved mt-4 text-display-md">
-            {sheet.displayName}
-          </h2>
-          <p className="q-display text-gold-300">{sheet.title?.name ?? "No title equipped"}</p>
-          <dl className="mt-4 grid w-full gap-2 text-left">
-            <StatBadge label="Equipped title" value={sheet.title?.name ?? "None"} />
-            <StatBadge label="Equipped cape" value={sheet.cape?.name ?? "None"} hint={sheet.cape ? undefined : "Skill Capes are earned at Level 99."} />
-            <StatBadge
-              label="Adventuring since"
-              value={<LocalDate iso={sheet.createdAt} />}
-              hint={`${sheet.accountAge} · Day ${formatNumber(sheet.adventureDay)}`}
-            />
-          </dl>
-        </GamePanel>
-
-        <div className="flex flex-col gap-5">
-          {/* ── Stats grid ─────────────────────────────────────────────── */}
-          <GamePanel as="section" labelledBy="char-skills" className="p-5">
+          {/* ── Skills ───────────────────────────────────────────────── */}
+          <GamePanel as="section" labelledBy="char-skills" className="p-4">
             <SectionHeader
               id="char-skills"
+              icon={<PixelIcon name="skills" size={22} />}
               title="Skills"
-              action={<CurrencyDisplay kind="TOTAL_LEVEL" value={sheet.totalLevel} max={sheet.maxTotalLevel} variant="stacked" />}
+              divider
+              action={
+                <Link href="/skills" className="text-sm text-blue-300 hover:underline">
+                  View All →
+                </Link>
+              }
             />
-            <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {sheet.skills.map((skill) => (
-                <li key={skill.key}>
-                  <Link
-                    href={`/skills?skill=${skill.key}`}
-                    className="q-well flex items-center gap-3 border border-border-dark p-2.5 hover:border-gold-700"
-                  >
-                    <SkillIcon icon={skill.icon} size={28} framed={false} />
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {sheet.skills.map((s) => (
+                <li key={s.key}>
+                  <Link href={`/skills?skill=${s.key}`} className="q-tile flex items-center gap-3 p-3 hover:border-gold-600">
+                    <SkillIcon icon={s.icon} size={34} framed={false} />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-bold text-text-secondary">{skill.name}</span>
+                      <span className="block text-text-primary">{s.name}</span>
+                      <span className="block text-sm font-bold" style={{ color: skillColor(s.key) }}>
+                        {s.progress.level} <span className="text-text-muted">/ 99</span>
+                      </span>
                       <ProgressBar
                         size="sm"
-                        tone={skill.key === "focus" ? "teal" : "moss"}
-                        value={skill.progress.percentToNext}
-                        label={`${skill.name} progress`}
-                        valueText={`Level ${skill.progress.level}, ${skill.progress.percentToNext}% to next`}
+                        color={skillColor(s.key)}
+                        value={s.progress.percentToNext}
+                        label={`${s.name} progress`}
+                        valueText={`Level ${s.progress.level}, ${s.progress.percentToNext}% to next`}
                       />
-                    </span>
-                    <span className="q-display text-2xl tabular-nums text-gold-200">
-                      <span className="sr-only">Level </span>
-                      {skill.progress.level}
                     </span>
                   </Link>
                 </li>
@@ -80,43 +147,76 @@ export default async function CharacterPage() {
             </ul>
           </GamePanel>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            {/* ── Honors & treasury ──────────────────────────────────────── */}
-            <GamePanel as="section" labelledBy="char-honors" className="p-5">
-              <SectionHeader id="char-honors" title="Honors & Treasury" />
-              <div className="mt-4 flex flex-col gap-4">
-                <CurrencyDisplay kind="QP" value={sheet.questPoints} variant="stacked" />
-                <CurrencyDisplay kind="COMBAT_POINTS" value={sheet.combatPoints} variant="stacked" />
-                <CurrencyDisplay kind="GP" value={sheet.gp.balance} variant="stacked" />
-              </div>
-            </GamePanel>
-
-            {/* ── Lifetime record (only stats that exist) ─────────────────── */}
-            <GamePanel as="section" surface="parchment" labelledBy="char-lifetime" className="p-5">
-              <SectionHeader id="char-lifetime" title="Lifetime Record" tone="parchment" />
-              <dl className="mt-4 grid grid-cols-2 gap-2">
-                <StatBadge tone="parchment" label="Total XP" value={formatNumber(sheet.totalXp)} />
-                <StatBadge tone="parchment" label="Days adventuring" value={formatNumber(sheet.adventureDay)} />
-                <StatBadge tone="parchment" label="GP earned" value={formatNumber(sheet.gp.lifetimeEarned)} />
-                <StatBadge tone="parchment" label="GP spent" value={formatNumber(sheet.gp.lifetimeSpent)} />
-              </dl>
-            </GamePanel>
+          <div className="grid gap-4 md:grid-cols-3">
+            <SealedPanel id="char-quests" icon="quests" title="Active Quests" message="Your active Quests will appear here." />
+            <SealedPanel id="char-boss" icon="bosses" title="Current Boss" message="Your Current Boss will appear here." />
+            <SealedPanel id="char-collection" icon="collection" title="Collection Log" message="Recent Collection items will appear here." />
           </div>
+        </div>
 
-          {/* ── Records from systems not yet built ─────────────────────── */}
-          <GamePanel as="section" labelledBy="char-future" className="p-5">
-            <SectionHeader id="char-future" title="Deeds Yet Unwritten" eyebrow="Arriving with future systems" />
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <SealedSlot icon={<PixelIcon name="quests" size={20} />} title="Quests completed" />
-              <SealedSlot icon={<PixelIcon name="bosses" size={20} />} title="Bosses defeated" />
-              <SealedSlot icon={<PixelIcon name="collection" size={20} />} title="Collection Log" />
-              <SealedSlot icon={<PixelIcon name="diaries" size={20} />} title="Achievement Diaries" />
-              <SealedSlot icon={<PixelIcon name="combat" size={20} />} title="Combat Achievements" />
-              <SealedSlot icon={<PixelIcon name="skill-focus" size={20} />} title="Focus sessions" />
-            </div>
+        {/* ── Right column ─────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-4">
+          <GamePanel as="section" labelledBy="char-total" className="p-4">
+            <SectionHeader id="char-total" icon={<PixelIcon name="total-level" size={22} />} title="Total Level" divider />
+            <p className="q-title mt-2 text-6xl leading-none text-text-primary">{sheet.totalLevel}</p>
+            <ProgressBar
+              tone="gold"
+              size="lg"
+              className="mt-3"
+              value={totalPct}
+              label="Total Level toward maximum"
+              valueText={`${sheet.totalLevel} of ${sheet.maxTotalLevel}`}
+            />
+            <p className="mt-1 text-text-secondary">
+              {sheet.totalLevel} / {sheet.maxTotalLevel} ({Math.floor(totalPct)}%)
+            </p>
+          </GamePanel>
+
+          <GamePanel as="section" labelledBy="char-milestones" className="p-4">
+            <SectionHeader id="char-milestones" icon={<PixelIcon name="skills" size={22} />} title="Level Milestones" divider />
+            <ul className="mt-2">
+              {milestones.map((m) => (
+                <li key={m.level} className="flex items-center gap-3 border-b border-stone-800 py-2 last:border-0">
+                  <span
+                    aria-hidden
+                    className={cx(
+                      "flex size-6 items-center justify-center rounded-full border-2 text-xs",
+                      m.reached ? "border-moss-400 bg-moss-600 text-white" : "border-stone-500",
+                    )}
+                  >
+                    {m.reached ? "✓" : ""}
+                  </span>
+                  <span className="flex-1 text-text-primary">
+                    Total Level {m.level}
+                    {m.level === sheet.maxTotalLevel && <span className="text-text-muted"> (maximum)</span>}
+                  </span>
+                  <span className={cx("text-sm", m.reached ? "text-moss-300" : "text-text-muted")}>
+                    {m.reached ? "Reached" : "Not yet"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </GamePanel>
+
+          <GamePanel as="section" labelledBy="char-lifetime" className="p-4">
+            <SectionHeader id="char-lifetime" icon={<PixelIcon name="diaries" size={22} />} title="Lifetime Stats" divider />
+            <dl className="mt-2">
+              {[
+                ["Total XP", sheet.totalXp],
+                ["GP earned", sheet.gp.lifetimeEarned],
+                ["GP spent", sheet.gp.lifetimeSpent],
+                ["Days adventuring", sheet.adventureDay],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between border-b border-stone-800 py-2 last:border-0">
+                  <dt className="text-text-secondary">{label}</dt>
+                  <dd className="font-bold tabular-nums text-text-primary">{formatNumber(value as number)}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2 text-sm text-text-muted">Quests, Bosses, Focus hours, and more are recorded once those systems arrive.</p>
           </GamePanel>
         </div>
       </div>
-    </div>
+    </>
   );
 }

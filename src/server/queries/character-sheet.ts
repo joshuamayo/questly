@@ -3,14 +3,14 @@
  * uses, running all level math through the game engine exactly once.
  */
 
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { normalizeAvatar, type AvatarConfig } from "@/game/avatar";
 import { adventureDay, describeAccountAge, MAX_TOTAL_LEVEL, totalLevel, totalXp } from "@/game/character";
 import { CharacterNotFoundError } from "@/game/errors";
 import { isSkillKey, type SkillKey } from "@/game/vocabulary";
-import { getLevelProgress, type LevelProgress } from "@/game/xp";
+import { getLevelProgress, getMasteryProgress, type LevelProgress, type MasteryProgress } from "@/game/xp";
 import type { Db } from "../db/client";
-import { activityEvents, capes, characterSkills, characters, skills, titles } from "../db/schema";
+import { activityEvents, capes, characterSkills, characters, progressionTransactions, skills, titles } from "../db/schema";
 
 export type SkillSheet = {
   key: SkillKey;
@@ -19,6 +19,7 @@ export type SkillSheet = {
   motto: string;
   icon: string;
   progress: LevelProgress;
+  mastery: MasteryProgress;
 };
 
 export type CharacterSheet = {
@@ -87,6 +88,7 @@ export async function getCharacterSheet(db: Db, characterId: string, now = new D
       motto: s.motto,
       icon: s.icon,
       progress: getLevelProgress(xpByKey.get(s.key) ?? 0),
+      mastery: getMasteryProgress(xpByKey.get(s.key) ?? 0),
     }));
   const xpMap = Object.fromEntries(sheetSkills.map((s) => [s.key, s.progress.totalXp]));
 
@@ -160,4 +162,48 @@ export async function getRecentChronicle(db: Db, characterId: string, limit = 6)
     }
     return { id: e.id, type: e.type, createdAt: e.createdAt.toISOString(), text };
   });
+}
+
+export type XpEntry = {
+  id: string;
+  skillKey: SkillKey;
+  amount: number;
+  /** Player-facing description of where the XP came from. */
+  source: string;
+  createdAt: string;
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  QUEST: "Quest completed",
+  QUESTLINE: "Questline completed",
+  FOCUS_SESSION: "Focus session",
+  BOSS: "Boss defeated",
+  DIARY: "Diary reward",
+  COMBAT_ACHIEVEMENT: "Combat Achievement",
+  COLLECTION: "Collection reward",
+  SYSTEM: "Granted",
+  SEED_DEMO: "Demo progression",
+};
+
+/** Most recent XP ledger entries (real transactions only), newest first. */
+export async function getRecentXp(db: Db, characterId: string, limit = 5): Promise<XpEntry[]> {
+  const rows = await db
+    .select()
+    .from(progressionTransactions)
+    .where(and(eq(progressionTransactions.characterId, characterId), eq(progressionTransactions.kind, "XP")))
+    .orderBy(desc(progressionTransactions.seq))
+    .limit(limit);
+  return rows
+    .filter((r) => r.skillKey && isSkillKey(r.skillKey))
+    .map((r) => {
+      const meta = (r.metadata ?? {}) as Record<string, unknown>;
+      const title = typeof meta.questTitle === "string" ? meta.questTitle : null;
+      return {
+        id: r.id,
+        skillKey: r.skillKey as SkillKey,
+        amount: r.amount,
+        source: title ?? SOURCE_LABELS[r.sourceType] ?? r.sourceType,
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
 }

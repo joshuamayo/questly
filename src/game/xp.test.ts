@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { XP_CURVE } from "./config/balance";
-import { applyXpGain, buildXpCurve, DEFAULT_XP_CURVE, getLevelProgress, levelForXp, xpForLevel } from "./xp";
+import {
+  applyXpGain,
+  buildXpCurve,
+  DEFAULT_XP_CURVE,
+  getLevelProgress,
+  getMasteryProgress,
+  levelForXp,
+  xpForLevel,
+} from "./xp";
 
 const MAX = XP_CURVE.maxLevel;
 const t = (level: number) => xpForLevel(level);
@@ -142,5 +150,14 @@ describe("applyXpGain", () => {
     expect(() => applyXpGain(0, 0)).toThrow(RangeError);
     expect(() => applyXpGain(0, -5)).toThrow(RangeError);
     expect(() => applyXpGain(0, 2.5)).toThrow(RangeError);
+  });
+});
+
+describe("getMasteryProgress", () => {
+  it("measures progress toward Level 99", () => {
+    expect(getMasteryProgress(0)).toEqual({ maxLevelXp: t(99), xpRemaining: t(99), percent: 0 });
+    const half = getMasteryProgress(Math.floor(t(99) / 2));
+    expect(half.percent).toBeGreaterThanOrEqual(49.9);
+    expect(getMasteryProgress(t(99) + 5)).toMatchObject({ xpRemaining: 0, percent: 100 });
   });
 });

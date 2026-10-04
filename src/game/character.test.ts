@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { adventureDay, describeAccountAge, MAX_TOTAL_LEVEL, nearestLevelUp, totalLevel, totalXp } from "./character";
+import {
+  adventureDay,
+  describeAccountAge,
+  greetingFor,
+  MAX_TOTAL_LEVEL,
+  nearestLevelUp,
+  totalLevel,
+  totalLevelMilestones,
+  totalXp,
+} from "./character";
 import { SKILL_DEFINITIONS } from "./content/skills";
 import { SKILL_KEYS } from "./vocabulary";
 import { getLevelProgress, xpForLevel } from "./xp";
@@ -62,5 +71,22 @@ describe("nearestLevelUp", () => {
   });
   it("ignores maxed Skills", () => {
     expect(nearestLevelUp([p(xpForLevel(99))])).toBeNull();
+  });
+});
+
+describe("Total Level milestones", () => {
+  it("marks milestones reached up to the current Total Level, ending at 594", () => {
+    const m = totalLevelMilestones(222);
+    expect(m.filter((x) => x.reached).map((x) => x.level)).toEqual([50, 100, 200]);
+    expect(m.at(-1)).toEqual({ level: 594, reached: false });
+  });
+});
+
+describe("greetingFor", () => {
+  it("greets by time of day", () => {
+    expect(greetingFor(8)).toBe("Good morning");
+    expect(greetingFor(13)).toBe("Good afternoon");
+    expect(greetingFor(19)).toBe("Good evening");
+    expect(greetingFor(2)).toBe("Well met");
   });
 });

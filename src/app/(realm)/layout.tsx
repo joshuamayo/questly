@@ -1,22 +1,31 @@
-import { AccountStrip } from "@/components/shell/AccountStrip";
+import { MobileTopBar } from "@/components/shell/MobileTopBar";
 import { BottomTabs } from "@/components/shell/BottomTabs";
 import { SideRail } from "@/components/shell/SideRail";
+import { StatusBar } from "@/components/shell/StatusBar";
 import { NoCharacterState } from "@/components/system/NoCharacterState";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { CharacterNotFoundError } from "@/game/errors";
-import { loadCharacterStatus, type CharacterStatus } from "@/server/queries";
+import { ArtProvider } from "@/components/art/ArtContext";
+import { ICON_ART_SLOTS } from "@/components/icons/art-slots";
+import { artUrl } from "@/server/art";
+import { loadCharacterSheet, toCharacterStatus, type CharacterSheet } from "@/server/queries";
 
-/** The persistent Questly shell: rail + account strip around every realm screen. */
+/** The persistent Questly shell: rail + status bar around every realm screen. */
 export default async function RealmLayout({ children }: { children: React.ReactNode }) {
-  let status: CharacterStatus;
+  let sheet: CharacterSheet;
   try {
-    status = await loadCharacterStatus();
+    sheet = await loadCharacterSheet();
   } catch (error) {
     if (error instanceof CharacterNotFoundError) return <NoCharacterState />;
     throw error;
   }
+  const status = toCharacterStatus(sheet);
+  const bustUrl = artUrl("character/bust");
+
+  const iconArt = Object.fromEntries(ICON_ART_SLOTS.map((slot) => [slot, artUrl(slot)]));
 
   return (
+    <ArtProvider manifest={iconArt}>
     <TooltipProvider>
       <a
         href="#main"
@@ -25,15 +34,19 @@ export default async function RealmLayout({ children }: { children: React.ReactN
         Skip to content
       </a>
       <div className="flex min-h-dvh">
-        <SideRail status={status} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <AccountStrip status={status} />
-          <main id="main" tabIndex={-1} className="flex-1 px-3 pb-24 pt-4 focus:outline-none sm:px-5 sm:pb-10 lg:px-8 lg:pt-6">
+        <SideRail sheet={sheet} characterArtUrl={artUrl("character/full")} />
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <MobileTopBar status={status} bustUrl={bustUrl} />
+          <div className="absolute right-6 top-4 z-20 hidden lg:block">
+            <StatusBar status={status} bustUrl={bustUrl} />
+          </div>
+          <main id="main" tabIndex={-1} className="flex-1 px-3 pb-24 pt-4 focus:outline-none sm:px-5 sm:pb-10 lg:px-6 lg:pt-0">
             {children}
           </main>
         </div>
       </div>
       <BottomTabs />
     </TooltipProvider>
+    </ArtProvider>
   );
 }

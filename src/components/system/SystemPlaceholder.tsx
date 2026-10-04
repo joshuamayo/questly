@@ -2,7 +2,7 @@ import { PixelIcon } from "@/components/icons/PixelIcon";
 import type { SpriteName } from "@/components/icons/sprites";
 import { GameLinkButton } from "@/components/ui/GameButton";
 import { LockState } from "@/components/ui/LockedState";
-import { SectionHeader } from "@/components/ui/SectionHeader";
+import { PageBanner } from "@/components/art/PageBanner";
 
 /**
  * Intentional placeholder for a system that is designed but not built yet.
@@ -15,7 +15,9 @@ export function SystemPlaceholder({
   tagline,
   description,
   features,
+  slot,
 }: {
+  slot: string;
   title: string;
   icon: SpriteName;
   tagline: string;
@@ -23,13 +25,12 @@ export function SystemPlaceholder({
   features: string[];
 }) {
   return (
-    <div className="mx-auto max-w-5xl">
-      <SectionHeader level={1} title={title} eyebrow="Realm Archive" />
-      <div className="q-rule mt-3" />
-
-      <div className="mt-6 grid items-start gap-6 md:grid-cols-[minmax(0,15rem)_1fr]">
+    <>
+      <PageBanner slot={slot} title={title} tagline={tagline} />
+      <div className="mx-auto max-w-5xl">
+      <div className="grid items-start gap-6 md:grid-cols-[minmax(0,15rem)_1fr]">
         {/* Sealed gate medallion */}
-        <div className="q-stone q-frame q-rivets flex flex-col items-center gap-4 px-6 py-8">
+        <div className="q-stone q-frame flex flex-col items-center gap-4 px-6 py-8">
           <div className="relative">
             <div className="q-well flex size-32 items-center justify-center rounded-full border-4 border-stone-700 shadow-[0_0_0_2px_var(--color-border-dark),inset_0_0_24px_rgb(0_0_0/0.8)]">
               <PixelIcon name={icon} size={72} className="opacity-50 grayscale-[0.6]" />
@@ -42,8 +43,7 @@ export function SystemPlaceholder({
         </div>
 
         <div className="q-parchment q-frame p-6 sm:p-8">
-          <p className="q-display text-sm uppercase tracking-[0.18em] text-parchment-ink-soft">{tagline}</p>
-          <h2 className="q-display mt-1 text-2xl text-parchment-ink">This part of the realm is still being built</h2>
+          <h2 className="q-title text-3xl text-parchment-ink">This part of the realm is still being built</h2>
           <p className="mt-3 max-w-prose text-parchment-ink">{description}</p>
           <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-parchment-ink-soft">
             When it opens, you will be able to
@@ -65,6 +65,7 @@ export function SystemPlaceholder({
           </GameLinkButton>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

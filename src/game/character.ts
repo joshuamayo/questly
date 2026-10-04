@@ -77,3 +77,18 @@ export function nearestLevelUp<T extends { progress: LevelProgress }>(skills: re
   }
   return best;
 }
+
+/** Total Level milestones shown on the Character screen. */
+export const TOTAL_LEVEL_MILESTONES = [50, 100, 200, 300, 400, 500, 594] as const;
+
+export function totalLevelMilestones(current: number) {
+  return TOTAL_LEVEL_MILESTONES.map((level) => ({ level, reached: current >= level }));
+}
+
+/** Time-of-day greeting for the World screen. */
+export function greetingFor(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 22) return "Good evening";
+  return "Well met";
+}

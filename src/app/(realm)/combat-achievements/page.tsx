@@ -6,9 +6,10 @@ export const metadata: Metadata = { title: "Combat Achievements" };
 export default function Page() {
   return (
     <SystemPlaceholder
+      slot="combat-achievements"
       title="Combat Achievements"
       icon="combat"
-      tagline="Execution Mastery"
+      tagline="Push your limits and prove your consistency."
       description="Combat Achievements measure how well you execute — deep work, deadlines met, Bosses defeated — and award permanent Combat Points."
       features={[
         "Pursue challenges from Easy to Grandmaster",

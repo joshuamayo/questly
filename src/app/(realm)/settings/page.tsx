@@ -6,9 +6,10 @@ export const metadata: Metadata = { title: "Settings" };
 export default function Page() {
   return (
     <SystemPlaceholder
+      slot="settings"
       title="Settings"
       icon="settings"
-      tagline="Game Rules & Preferences"
+      tagline="Customize your experience."
       description="Settings will hold your profile, schedule, Focus, notification, appearance, and advanced Game Balance preferences."
       features={[
         "Edit your display name, avatar, title, and cape",

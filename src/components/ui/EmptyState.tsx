@@ -20,7 +20,7 @@ export function EmptyState({
   return (
     <div className={cx("flex flex-col items-center gap-3 px-4 py-6 text-center", className)}>
       {icon}
-      <p className={cx("q-display text-lg", tone === "dark" ? "text-gold-200" : "text-parchment-ink")}>{title}</p>
+      <p className={cx("q-title text-xl", tone === "dark" ? "text-gold-300" : "text-parchment-ink")}>{title}</p>
       <p className={cx("max-w-sm", tone === "dark" ? "text-text-secondary" : "text-parchment-ink-soft")}>{message}</p>
       {action && <div className="mt-1">{action}</div>}
     </div>
