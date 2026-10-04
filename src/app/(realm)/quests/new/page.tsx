@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageBanner } from "@/components/art/PageBanner";
 import { CreateQuestForm } from "@/components/quests/CreateQuestForm";
 import { QuestsTabs } from "@/components/quests/QuestsTabs";
-import { loadCharacterSheet, loadQuests } from "@/server/queries";
+import { loadBalanceView, loadCharacterSheet, loadQuests } from "@/server/queries";
 
 export const metadata: Metadata = { title: "Create Quest" };
 
@@ -14,7 +14,8 @@ export default async function CreateQuestPage({ searchParams }: PageProps<"/ques
     <>
       <PageBanner slot="quests" title="Create Quest" tagline="Turn a real-life goal into an adventure." />
       <QuestsTabs />
-      <CreateQuestForm skills={skills} initialSkill={skills.find((s) => s.key === preferred)?.key} activeMainCount={active.filter((q) => q.priority === "MAIN").length} />
+      <CreateQuestForm skills={skills} initialSkill={skills.find((s) => s.key === preferred)?.key} activeMainCount={active.filter((q) => q.priority === "MAIN").length}
+        mainQuestCap={(await loadBalanceView()).mainQuestCap} />
     </>
   );
 }

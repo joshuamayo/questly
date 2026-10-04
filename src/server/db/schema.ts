@@ -82,9 +82,12 @@ export const characters = pgTable(
     lifetimeGpSpent: integer("lifetime_gp_spent").notNull().default(0),
     questPoints: integer("quest_points").notNull().default(0),
     combatPoints: integer("combat_points").notNull().default(0),
+    /** Streak Shields earned from Diary tiers; spent automatically on missed workdays. */
+    streakShields: integer("streak_shields").notNull().default(0),
     createdAt: createdAt(),
   },
   (t) => [
+    check("characters_shields_non_negative", sql`${t.streakShields} >= 0`),
     check("characters_gp_non_negative", sql`${t.gpBalance} >= 0`),
     check("characters_lifetime_gp_non_negative", sql`${t.lifetimeGpEarned} >= 0 AND ${t.lifetimeGpSpent} >= 0`),
     check("characters_gp_reconciles", sql`${t.gpBalance} = ${t.lifetimeGpEarned} - ${t.lifetimeGpSpent}`),
@@ -248,6 +251,8 @@ export const quests = pgTable(
     bossDesignatedAt: timestamp("boss_designated_at", { withTimezone: true, mode: "date" }),
     /** Bounty configuration snapshotted when the Boss was designated. */
     bounty: jsonb("bounty"),
+    /** The one Quest chosen during Respawn; completing it grants a small comeback bonus. */
+    isRespawnQuest: boolean("is_respawn_quest").notNull().default(false),
     acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
     completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
     /** The player's local calendar date at completion (for on-time tracking). */
@@ -457,6 +462,138 @@ export const diaryClaims = pgTable(
   (t) => [primaryKey({ columns: [t.characterId, t.period, t.periodStart, t.tier] })],
 );
 
+// ---------------------------------------------------------------------------
+// Rewards, recovery, and planning
+// ---------------------------------------------------------------------------
+
+/** Player-defined real-life rewards. Archived, never deleted, once redeemed. */
+export const rewards = pgTable(
+  "rewards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    category: text("category").notNull(),
+    icon: text("icon").notNull(),
+    gpCost: integer("gp_cost").notNull(),
+    repeatable: boolean("repeatable").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    estimatedValue: text("estimated_value"),
+    createdAt: createdAt(),
+  },
+  (t) => [check("rewards_cost_positive", sql`${t.gpCost} > 0`), index("rewards_character_idx").on(t.characterId)],
+);
+
+export const rewardRedemptions = pgTable(
+  "reward_redemptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rewardId: uuid("reward_id")
+      .notNull()
+      .references(() => rewards.id),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    gpCostSnapshot: integer("gp_cost_snapshot").notNull(),
+    rewardNameSnapshot: text("reward_name_snapshot").notNull(),
+    redeemedAt: createdAt("redeemed_at"),
+  },
+  (t) => [index("reward_redemptions_character_idx").on(t.characterId, t.redeemedAt)],
+);
+
+/** Local calendar days with meaningful progress — the basis for streaks. */
+export const activityDays = pgTable(
+  "activity_days",
+  {
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    adventure: boolean("adventure").notNull().default(false),
+    focus: boolean("focus").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.characterId, t.day] })],
+);
+
+/** Missed workdays protected by a Streak Shield. */
+export const shieldUses = pgTable(
+  "shield_uses",
+  {
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.characterId, t.day] })],
+);
+
+/** History of target/deadline changes so original dates are never lost. */
+export const questDateChanges = pgTable(
+  "quest_date_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    questId: uuid("quest_id")
+      .notNull()
+      .references(() => quests.id, { onDelete: "cascade" }),
+    field: text("field").notNull(),
+    oldValue: date("old_value", { mode: "string" }),
+    newValue: date("new_value", { mode: "string" }),
+    reason: text("reason").notNull().default("EDIT"),
+    changedAt: createdAt("changed_at"),
+  },
+  (t) => [index("quest_date_changes_quest_idx").on(t.questId)],
+);
+
+export const weeklyPlans = pgTable(
+  "weekly_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    weekStart: date("week_start", { mode: "string" }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true, mode: "date" }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("weekly_plans_character_week").on(t.characterId, t.weekStart)],
+);
+
+/** Rough allocation of Quests to days (not a minute-by-minute calendar). */
+export const weeklyPlanItems = pgTable(
+  "weekly_plan_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => weeklyPlans.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    questId: uuid("quest_id")
+      .notNull()
+      .references(() => quests.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("weekly_plan_items_unique").on(t.planId, t.day, t.questId)],
+);
+
+export const respawns = pgTable(
+  "respawns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    /** MANUAL, MISSED_WORKDAYS, or QUESTS_NEED_ATTENTION. */
+    trigger: text("trigger").notNull(),
+    respawnQuestId: uuid("respawn_quest_id").references(() => quests.id, { onDelete: "set null" }),
+    startedAt: createdAt("started_at"),
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [index("respawns_character_idx").on(t.characterId)],
+);
+
 export type QuestRow = typeof quests.$inferSelect;
 export type QuestlineRow = typeof questlines.$inferSelect;
 export type QuestRequirementRow = typeof questRequirements.$inferSelect;
@@ -468,3 +605,6 @@ export type CharacterRow = typeof characters.$inferSelect;
 export type SkillRow = typeof skills.$inferSelect;
 export type ProgressionTransactionRow = typeof progressionTransactions.$inferSelect;
 export type ActivityEventRow = typeof activityEvents.$inferSelect;
+export type RewardRow = typeof rewards.$inferSelect;
+export type RewardRedemptionRow = typeof rewardRedemptions.$inferSelect;
+export type WeeklyPlanRow = typeof weeklyPlans.$inferSelect;

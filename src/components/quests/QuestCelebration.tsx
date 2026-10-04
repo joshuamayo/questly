@@ -77,6 +77,11 @@ export function QuestCelebration({ payload, onClose }: { payload: CompletionPayl
                     )}
                   </p>
                 )}
+                {payload.comeback && (
+                  <p className="mt-3 rounded-sm border border-moss-600/60 bg-moss-300/20 px-3 py-2 text-parchment-ink">
+                    <span className="font-bold">Respawn Quest complete: +{payload.comeback.xp} Focus XP</span> comeback bonus. You are back.
+                  </p>
+                )}
                 <p className="mt-3 text-sm text-parchment-ink-soft">
                   Total Level {payload.totals.totalLevelAfter} · {formatNumber(payload.totals.questPoints)} Quest Points ·{" "}
                   {formatNumber(payload.totals.gpBalance)} GP

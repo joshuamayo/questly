@@ -6,7 +6,7 @@
 import { FOCUS_XP } from "./config/balance";
 import { GameRuleError } from "./errors";
 
-export type FocusConfig = typeof FOCUS_XP;
+export type FocusConfig = Omit<typeof FOCUS_XP, "dailyXpCap"> & { dailyXpCap: number };
 
 export function assertSessionMinutes(minutes: number, config: FocusConfig = FOCUS_XP): void {
   if (!Number.isInteger(minutes) || minutes < config.minSessionMinutes || minutes > config.maxSessionMinutes) {

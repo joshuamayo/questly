@@ -8,9 +8,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { GameLinkButton } from "@/components/ui/GameButton";
 import { GamePanel } from "@/components/ui/GamePanel";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { MAIN_QUEST_CAP } from "@/game/config/balance";
 import { cx } from "@/lib/cx";
-import { loadQuestCounts, loadQuests, loadTemplates, type JournalView } from "@/server/queries";
+import { NeedsAttention } from "@/components/planning/NeedsAttention";
+import { loadBalanceView, loadNeedsAttention, loadQuestCounts, loadQuests, loadTemplates, loadToday, type JournalView } from "@/server/queries";
 
 export const metadata: Metadata = { title: "Quest Journal" };
 
@@ -23,7 +23,15 @@ const VIEWS: { key: JournalView; label: string }[] = [
 export default async function QuestJournalPage({ searchParams }: PageProps<"/quests">) {
   const params = await searchParams;
   const view: JournalView = VIEWS.some((v) => v.key === params.view) ? (params.view as JournalView) : "active";
-  const [list, counts, templates] = await Promise.all([loadQuests(view), loadQuestCounts(), loadTemplates()]);
+  const [list, counts, templates, balance, attention, today] = await Promise.all([
+    loadQuests(view),
+    loadQuestCounts(),
+    loadTemplates(),
+    loadBalanceView(),
+    loadNeedsAttention(),
+    loadToday(),
+  ]);
+  const MAIN_QUEST_CAP = balance.mainQuestCap;
   const main = list.filter((q) => q.priority === "MAIN");
   const side = list.filter((q) => q.priority !== "MAIN");
   const suggestions = templates.filter((t) => !t.isCustom).slice(0, 3);
@@ -32,6 +40,14 @@ export default async function QuestJournalPage({ searchParams }: PageProps<"/que
     <>
       <PageBanner slot="quests" title="Quest Journal" tagline="Take on Quests, complete objectives, and earn real rewards." />
       <QuestsTabs />
+      {view === "active" && attention.length > 0 && (
+        <div className="mb-4">
+          <NeedsAttention
+            today={today}
+            items={attention.map((q) => ({ id: q.id, title: q.title, icon: q.icon, reason: q.reason, targetDate: q.targetDate, deadline: q.deadline, progress: q.progress }))}
+          />
+        </div>
+      )}
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <GamePanel as="section" labelledBy="journal-heading" className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -121,6 +137,13 @@ export default async function QuestJournalPage({ searchParams }: PageProps<"/que
         </GamePanel>
 
         <div className="flex flex-col gap-4">
+          <GamePanel as="section" labelledBy="journal-planning" className="p-4">
+            <SectionHeader id="journal-planning" icon={<PixelIcon name="world" size={22} />} title="Weekly Planning" divider />
+            <p className="mt-3 text-text-secondary">Prepare the week like an expedition: review the road ahead and choose your battles.</p>
+            <GameLinkButton href="/planning" variant="secondary" className="mt-3 w-full">
+              Prepare the Week
+            </GameLinkButton>
+          </GamePanel>
           <GamePanel as="section" labelledBy="journal-actions" className="p-4">
             <SectionHeader id="journal-actions" icon={<PixelIcon name="skill-creator" size={22} />} title="New Adventure" divider />
             <p className="mt-3 text-text-secondary">Write your own Quest, or pick a ready-made adventure from the Quest Board.</p>

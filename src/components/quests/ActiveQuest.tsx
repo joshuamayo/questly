@@ -29,15 +29,17 @@ import { LocalDate } from "@/components/ui/LocalDate";
 import { Notice } from "@/components/ui/Notice";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { MAIN_QUEST_CAP } from "@/game/config/balance";
 import { canPerform, LIMITS, QUEST_STATUS_LABELS } from "@/game/quests";
 import { cx } from "@/lib/cx";
-import { localToday } from "@/lib/dates";
+import { formatIsoDate, localToday } from "@/lib/dates";
+import { ContinueDialog } from "@/components/planning/NeedsAttention";
 import type { QuestDetail } from "@/server/queries/quests";
 import { DifficultyBadge } from "./DifficultyBadge";
 import { QuestCelebration } from "./QuestCelebration";
 import { QuestDates } from "./QuestDates";
 import { RewardTiles } from "./RewardTiles";
+
+const DATE_REASONS: Record<string, string> = { EDIT: "Edited", CONTINUE: "Continued", RESCOPE: "Rescoped", RESPAWN: "Reset during Respawn" };
 
 const field =
   "w-full rounded-sm border border-stone-600 bg-stone-950 px-3 py-2 text-text-primary placeholder:text-text-disabled focus:border-gold-400 focus:outline-none focus-visible:outline-2 focus-visible:outline-focus-ring";
@@ -46,10 +48,17 @@ export function ActiveQuest({
   quest,
   justAccepted,
   activeMainCount,
+  mainQuestCap,
+  rescope = false,
+  today,
 }: {
   quest: QuestDetail;
   justAccepted: boolean;
   activeMainCount: number;
+  mainQuestCap: number;
+  /** Opened from "Quests Need Attention → Rescope". */
+  rescope?: boolean;
+  today: string;
 }) {
   const router = useRouter();
   const ids = useId();
@@ -57,7 +66,8 @@ export function ActiveQuest({
   const [error, setError] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<CompletionPayload | null>(null);
   const [showAccepted, setShowAccepted] = useState(justAccepted);
-  const [managing, setManaging] = useState(false);
+  const [managing, setManaging] = useState(rescope);
+  const [rescoping, setRescoping] = useState(false);
   const [newObjective, setNewObjective] = useState("");
   const [notes, setNotes] = useState(quest.notes);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -159,6 +169,33 @@ export function ActiveQuest({
       </GamePanel>
 
       {error && <Notice tone="error">{error}</Notice>}
+
+      {rescope && canEdit && (
+        <GamePanel as="section" aria-label="Rescope this Quest" className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <PixelIcon name="quests" size={28} />
+          <p className="flex-1 text-text-secondary">
+            <span className="q-title block text-lg text-gold-300">Rescope this Quest</span>
+            Remove objectives that no longer fit, add what is really left, then set a realistic new target. Original dates stay in the Quest&apos;s history.
+          </p>
+          <GameButton variant="primary" onClick={() => setRescoping(true)}>
+            Set New Target
+          </GameButton>
+        </GamePanel>
+      )}
+      {rescoping && (
+        <ContinueDialog
+          title="Rescope Quest"
+          quest={quest}
+          today={today}
+          reason="RESCOPE"
+          onClose={() => setRescoping(false)}
+          onDone={() => {
+            setRescoping(false);
+            router.replace(`/quests/${quest.id}`);
+            router.refresh();
+          }}
+        />
+      )}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="flex flex-col gap-4">
@@ -381,7 +418,7 @@ export function ActiveQuest({
                 <legend className="mb-1 text-sm font-bold text-text-secondary">Priority</legend>
                 <div className="flex gap-1.5">
                   {(["MAIN", "SIDE"] as const).map((p) => {
-                    const blocked = p === "MAIN" && quest.priority !== "MAIN" && activeMainCount >= MAIN_QUEST_CAP;
+                    const blocked = p === "MAIN" && quest.priority !== "MAIN" && activeMainCount >= mainQuestCap;
                     return (
                       <button
                         key={p}
@@ -406,7 +443,7 @@ export function ActiveQuest({
           </GamePanel>
 
           {status === "AVAILABLE" ? (
-            <AcceptPanel quest={quest} pending={pending} activeMainCount={activeMainCount} act={act} />
+            <AcceptPanel quest={quest} pending={pending} activeMainCount={activeMainCount} mainQuestCap={mainQuestCap} act={act} />
           ) : (
             <StatusPanel
               quest={quest}
@@ -425,6 +462,24 @@ export function ActiveQuest({
                     <span className="text-text-secondary">{a.text}</span>
                     <span className="shrink-0 text-text-muted">
                       <LocalDate iso={a.createdAt} options={{ month: "short", day: "numeric" }} />
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </GamePanel>
+          )}
+
+          {quest.dateHistory.length > 0 && (
+            <GamePanel as="section" labelledBy={`${ids}-dates`} className="p-4">
+              <SectionHeader id={`${ids}-dates`} icon={<PixelIcon name="diaries" size={22} />} title="Date History" divider />
+              <ol className="mt-2 text-sm">
+                {quest.dateHistory.map((h, i) => (
+                  <li key={i} className="border-b border-stone-800 py-1.5 last:border-0">
+                    <span className="text-text-secondary">
+                      {h.field === "TARGET" ? "Target" : "Hard deadline"}: {h.oldValue ? formatIsoDate(h.oldValue) : "none"} → {h.newValue ? formatIsoDate(h.newValue) : "none"}
+                    </span>
+                    <span className="block text-xs text-text-muted">
+                      {DATE_REASONS[h.reason] ?? "Edited"} · <LocalDate iso={h.changedAt} options={{ month: "short", day: "numeric", year: "numeric" }} />
                     </span>
                   </li>
                 ))}
@@ -663,11 +718,13 @@ function AcceptPanel({
   quest,
   pending,
   activeMainCount,
+  mainQuestCap,
   act,
 }: {
   quest: QuestDetail;
   pending: boolean;
   activeMainCount: number;
+  mainQuestCap: number;
   act: <T>(fn: () => Promise<ActionResult<T>>, onOk?: (data: T) => void) => void;
 }) {
   const router = useRouter();
@@ -743,7 +800,7 @@ function AcceptPanel({
                 type="button"
                 role="radio"
                 aria-checked={priority === p}
-                disabled={p === "MAIN" && activeMainCount >= MAIN_QUEST_CAP}
+                disabled={p === "MAIN" && activeMainCount >= mainQuestCap}
                 onClick={() => setPriority(p)}
                 className={cx(
                   "flex-1 rounded-sm border px-2 py-2 text-sm disabled:opacity-50",

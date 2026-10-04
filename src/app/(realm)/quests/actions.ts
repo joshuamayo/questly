@@ -5,6 +5,8 @@ import { designateBoss, clearBoss } from "@/server/bosses/service";
 import type { QuestDraftInput, QuestPriority } from "@/game/quests";
 import { getCharacterSheet } from "@/server/queries/character-sheet";
 import * as questService from "@/server/quests/service";
+import { continueQuest } from "@/server/planning/attention";
+import { actionToday } from "@/server/today";
 
 export type { ActionResult } from "@/server/actions/run";
 
@@ -23,7 +25,7 @@ export async function acceptTemplateAction(
 
 export async function setObjectiveDoneAction(questId: string, objectiveId: string, done: boolean) {
   return run(async (db, c) => {
-    await questService.setObjectiveDone(db, c, questId, objectiveId, done);
+    await questService.setObjectiveDone(db, c, questId, objectiveId, done, { localDate: await actionToday() });
   });
 }
 
@@ -75,7 +77,7 @@ export type CompletionPayload = Omit<questService.QuestCompletion, "levelUps"> &
 
 export async function completeQuestAction(questId: string, localDate?: string) {
   return run<CompletionPayload>(async (db, c) => {
-    const result = await questService.completeQuest(db, c, questId, { localDate });
+    const result = await questService.completeQuest(db, c, questId, { localDate: await actionToday(localDate) });
     const sheet = await getCharacterSheet(db, c);
     const skillOf = (key: string) => sheet.skills.find((s) => s.key === key)!;
     const questSkill = skillOf(result.quest.skillKey);
@@ -106,4 +108,13 @@ export async function bossAction(questId: string, action: "designate" | "clear")
     if (action === "designate") await designateBoss(db, c, questId);
     else await clearBoss(db, c, questId);
   });
+}
+
+export async function continueQuestAction(
+  questId: string,
+  input: { targetDate: string; deadline?: string | null },
+  reason: "CONTINUE" | "RESCOPE" | "RESPAWN" = "CONTINUE",
+  localDate?: string,
+) {
+  return run(async (db, c) => continueQuest(db, c, questId, input, await actionToday(localDate), reason));
 }

@@ -10,7 +10,6 @@ import { GameButton, GameLinkButton } from "@/components/ui/GameButton";
 import { GamePanel } from "@/components/ui/GamePanel";
 import { Notice } from "@/components/ui/Notice";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { MAIN_QUEST_CAP } from "@/game/config/balance";
 import { rewardsFor } from "@/game/quests";
 import { cx } from "@/lib/cx";
 import type { QuestTemplateView } from "@/server/queries/quests";
@@ -24,10 +23,12 @@ export function QuestBoard({
   templates,
   initialKey,
   activeMainCount,
+  mainQuestCap,
 }: {
   templates: QuestTemplateView[];
   initialKey?: string;
   activeMainCount: number;
+  mainQuestCap: number;
 }) {
   const router = useRouter();
   const ids = useId();
@@ -37,7 +38,7 @@ export function QuestBoard({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const t = templates.find((x) => x.key === selectedKey)!;
-  const mainFull = activeMainCount >= MAIN_QUEST_CAP;
+  const mainFull = activeMainCount >= mainQuestCap;
 
   function select(key: string) {
     setSelectedKey(key);
@@ -167,7 +168,7 @@ export function QuestBoard({
                   </div>
                 </fieldset>
               </div>
-              {mainFull && <p className="mt-1 text-xs text-parchment-ink-soft">All {MAIN_QUEST_CAP} Main Quest slots are taken.</p>}
+              {mainFull && <p className="mt-1 text-xs text-parchment-ink-soft">All {mainQuestCap} Main Quest slots are taken.</p>}
               {error && <Notice tone="error" className="mt-3">{error}</Notice>}
               <GameButton variant="primary" size="lg" className="mt-4 w-full" disabled={pending} onClick={accept}>
                 {pending ? "Accepting…" : "Accept Quest →"}

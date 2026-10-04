@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageBanner } from "@/components/art/PageBanner";
 import { QuestBoard } from "@/components/quests/QuestBoard";
 import { QuestsTabs } from "@/components/quests/QuestsTabs";
-import { loadQuests, loadTemplates } from "@/server/queries";
+import { loadBalanceView, loadQuests, loadTemplates } from "@/server/queries";
 
 export const metadata: Metadata = { title: "Quest Board" };
 
@@ -18,6 +18,7 @@ export default async function QuestBoardPage({ searchParams }: PageProps<"/quest
         templates={templates}
         initialKey={initialKey}
         activeMainCount={active.filter((q) => q.priority === "MAIN").length}
+        mainQuestCap={(await loadBalanceView()).mainQuestCap}
       />
     </>
   );

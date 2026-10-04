@@ -15,6 +15,7 @@ import type { Db } from "../db/client";
 import { activityEvents, characters, diaryClaims, diaryCustomEntries, diaryEntryTemplates } from "../db/schema";
 import { computeMetrics } from "../meta/metrics";
 import { recordProgression } from "../progression/service";
+import { grantShieldForDiary } from "../streaks/service";
 
 export type DiaryEntryView = {
   id: string;
@@ -91,13 +92,14 @@ export async function claimDiaryTier(db: Db, characterId: string, type: DiaryPer
     if (reward.focusXp > 0) {
       xp = (await recordProgression(tx, characterId, { kind: "XP", skillKey: "focus", amount: reward.focusXp, ...source, idempotencyKey: `${key}:xp` })).xp ?? null;
     }
+    const shield = await grantShieldForDiary(tx, characterId, type, tier);
     await tx.insert(activityEvents).values({
       characterId,
       type: "DIARY_TIER_CLAIMED",
       entityId: key,
       payload: { period: diary.period.label, periodType: type, tier, gp: reward.gp, focusXp: reward.focusXp },
     });
-    return { period: diary.period, tier, reward, levelUp: xp?.leveledUp ? { fromLevel: xp.previousLevel, toLevel: xp.newLevel } : null };
+    return { period: diary.period, tier, reward, shield, levelUp: xp?.leveledUp ? { fromLevel: xp.previousLevel, toLevel: xp.newLevel } : null };
   });
 }
 

@@ -17,7 +17,13 @@ import {
 export { toCharacterStatus } from "./character-sheet";
 import { listCollection, listCombatAchievements, listTitlesAndCapes } from "./meta";
 import { diaryClaimHistory, getDiary } from "../diaries/service";
-import { serverToday } from "../requirements/service";
+import { viewerToday } from "../today";
+import { loadSettings, loadBalance } from "../settings/service";
+import { getRewardShop } from "../rewards/service";
+import { getStreaks } from "../streaks/service";
+import { listNeedsAttention } from "../planning/attention";
+import { getPlanningView, getToday } from "../planning/service";
+import { getOpenRespawn, getRespawnSuggestion, respawnStats } from "../respawn/service";
 import { getCurrentBoss, listBossCandidates, listDefeatedBosses } from "./bosses";
 import { getQuestlineDetail, listQuestlines } from "./questlines";
 import { focusStats, getActiveSession } from "../focus/service";
@@ -94,5 +100,24 @@ export type { DiaryView, DiaryEntryView } from "../diaries/service";
 export const loadCombatAchievements = cache(async () => listCombatAchievements(await getDb(), await currentId()));
 export const loadCollection = cache(async () => listCollection(await getDb(), await currentId()));
 export const loadTitlesAndCapes = cache(async () => listTitlesAndCapes(await getDb(), await currentId()));
-export const loadDiary = cache(async (period: "WEEKLY" | "MONTHLY") => getDiary(await getDb(), await currentId(), period, serverToday()));
+export const loadDiary = cache(async (period: "WEEKLY" | "MONTHLY") => getDiary(await getDb(), await currentId(), period, await viewerToday()));
 export const loadDiaryHistory = cache(async () => diaryClaimHistory(await getDb(), await currentId()));
+
+// ---------------------------------------------------------------------------
+// Rewards, recovery, planning, settings
+// ---------------------------------------------------------------------------
+
+export const loadToday = cache(async () => {
+  await connection();
+  return viewerToday();
+});
+export const loadSettingsView = cache(async () => loadSettings(await getDb(), await currentId()));
+export const loadBalanceView = cache(async () => loadBalance(await getDb(), await currentId()));
+export const loadRewardShop = cache(async () => getRewardShop(await getDb(), await currentId()));
+export const loadStreaks = cache(async () => getStreaks(await getDb(), await currentId(), await loadToday()));
+export const loadNeedsAttention = cache(async () => listNeedsAttention(await getDb(), await currentId(), await loadToday()));
+export const loadPlanning = cache(async () => getPlanningView(await getDb(), await currentId(), await loadToday()));
+export const loadTodayPlan = cache(async () => getToday(await getDb(), await currentId(), await loadToday()));
+export const loadRespawnSuggestion = cache(async () => getRespawnSuggestion(await getDb(), await currentId(), await loadToday()));
+export const loadOpenRespawn = cache(async () => getOpenRespawn(await getDb(), await currentId()));
+export const loadRespawnStats = cache(async () => respawnStats(await getDb(), await currentId()));

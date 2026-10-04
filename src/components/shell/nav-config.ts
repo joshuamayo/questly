@@ -18,11 +18,11 @@ export const PRIMARY_NAV: readonly NavDestination[] = [
   { href: "/combat-achievements", label: "Combat Achievements", icon: "combat", available: true },
   { href: "/bosses", label: "Bosses", icon: "bosses", available: true },
   { href: "/collection-log", label: "Collection Log", icon: "collection", available: true },
-  { href: "/reward-shop", label: "Reward Shop", icon: "shop", available: false },
+  { href: "/reward-shop", label: "Reward Shop", icon: "shop", available: true },
 ];
 
 export const CHARACTER_NAV: NavDestination = { href: "/character", label: "Character", icon: "character", available: true };
-export const SETTINGS_NAV: NavDestination = { href: "/settings", label: "Settings", icon: "settings", available: false };
+export const SETTINGS_NAV: NavDestination = { href: "/settings", label: "Settings", icon: "settings", available: true };
 
 /** Mobile bottom bar: the destinations that matter most on a phone. */
 export const MOBILE_TABS: readonly NavDestination[] = [PRIMARY_NAV[0], PRIMARY_NAV[1], PRIMARY_NAV[3], CHARACTER_NAV];

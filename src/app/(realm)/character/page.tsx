@@ -25,6 +25,8 @@ import {
   loadQuestCounts,
   loadQuests,
   loadTitlesAndCapes,
+  loadStreaks,
+  loadRespawnStats,
 } from "@/server/queries";
 import { EquipPanel } from "@/components/character/EquipPanel";
 import { QuestCard } from "@/components/quests/QuestCard";
@@ -50,7 +52,14 @@ export default async function CharacterPage() {
     loadDefeatedBosses(),
     loadFocusStats(),
   ]);
-  const [collection, achievements, diaryClaims, cosmetics] = await Promise.all([loadCollection(), loadCombatAchievements(), loadDiaryHistory(), loadTitlesAndCapes()]);
+  const [collection, achievements, diaryClaims, cosmetics, streaks, resilience] = await Promise.all([
+    loadCollection(),
+    loadCombatAchievements(),
+    loadDiaryHistory(),
+    loadTitlesAndCapes(),
+    loadStreaks(),
+    loadRespawnStats(),
+  ]);
   const owned = collection.filter((c) => c.state === "UNLOCKED");
   const rarityRank = ["LEGENDARY", "EPIC", "RARE", "UNCOMMON", "COMMON"];
   const significant = [...owned].sort((a, b) => rarityRank.indexOf(a.rarity) - rarityRank.indexOf(b.rarity)).slice(0, 5);
@@ -292,6 +301,41 @@ export default async function CharacterPage() {
                 </li>
               ))}
             </ul>
+          </GamePanel>
+
+          <GamePanel as="section" labelledBy="char-streaks" className="p-4">
+            <SectionHeader id="char-streaks" icon={<PixelIcon name="sword" size={22} />} title="Streaks" divider />
+            <dl className="mt-2">
+              {(
+                [
+                  ["Adventure Streak", streaks.adventure.current, streaks.adventure.best],
+                  ["Focus Streak", streaks.focus.current, streaks.focus.best],
+                  ["Deadline Streak", streaks.deadline.current, streaks.deadline.best],
+                ] as const
+              ).map(([label, current, best]) => (
+                <div key={label} className="flex justify-between border-b border-stone-800 py-2">
+                  <dt className="text-text-secondary">{label}</dt>
+                  <dd className="tabular-nums text-text-primary">
+                    <span className="font-bold">{current}</span> <span className="text-sm text-text-muted">· best {best}</span>
+                  </dd>
+                </div>
+              ))}
+              <div className="flex justify-between border-b border-stone-800 py-2">
+                <dt className="text-text-secondary">Streak Shields</dt>
+                <dd className="font-bold tabular-nums text-blue-300">
+                  {streaks.shields} / {streaks.maxShields}
+                </dd>
+              </div>
+              <div className="flex justify-between py-2">
+                <dt className="text-text-secondary">Deaths · Respawns</dt>
+                <dd className="font-bold tabular-nums text-text-primary">
+                  {resilience.deaths} · {resilience.respawns}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-1 text-xs text-text-muted">
+              {resilience.respawns > 0 ? `Came back ${resilience.respawns} time${resilience.respawns === 1 ? "" : "s"}. That is resilience.` : "Shields come from Weekly Elite and Monthly Hard/Elite Diary tiers."}
+            </p>
           </GamePanel>
 
           <GamePanel as="section" labelledBy="char-lifetime" className="p-4">

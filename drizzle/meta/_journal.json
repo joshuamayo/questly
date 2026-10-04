@@ -29,6 +29,13 @@
       "when": 1791133661132,
       "tag": "0003_meta_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791134568758,
+      "tag": "0004_rewards_recovery_planning",
+      "breakpoints": true
     }
   ]
 }

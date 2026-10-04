@@ -18,6 +18,12 @@
   Achievements (Combat Points once each); 47-slot Collection Log with secret slots, manual milestone claims, and
   memories; Weekly/Monthly Achievement Diaries (auto + personal entries, in-order one-time tier claims); Titles
   and Skill Capes; Character Profile records.
+- **Phase 5 — Rewards + Recovery:** Reward Shop (your own rewards, atomic and idempotent GP redemption that can
+  never go negative, archive-not-delete, permanent history); Settings (schedule, vacation/pause, Focus default,
+  reduced motion, and an advanced Game Balance editor that only affects newly accepted Quests); Adventure, Focus,
+  and Deadline streaks with Streak Shields from Diary tiers; Quests Need Attention (Continue / Rescope / Abandon,
+  original dates kept in date history); six-step Weekly Planning with daily Quest recommendations; and a guided
+  Respawn ("You Died — nothing permanent was lost") with a one-time comeback bonus and resilience stats.
 
 ## Quick start
 

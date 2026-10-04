@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ActiveQuest } from "@/components/quests/ActiveQuest";
 import { QuestsTabs } from "@/components/quests/QuestsTabs";
-import { loadQuestDetail, loadQuests } from "@/server/queries";
+import { loadBalanceView, loadQuestDetail, loadQuests, loadToday } from "@/server/queries";
 import { QuestNotFoundError } from "@/server/quests/service";
 
 export const metadata: Metadata = { title: "Active Quest" };
@@ -27,7 +27,10 @@ export default async function ActiveQuestPage({ params, searchParams }: PageProp
         key={quest.id}
         quest={quest}
         justAccepted={query.accepted === "1"}
+        rescope={query.rescope === "1"}
+        today={await loadToday()}
         activeMainCount={active.filter((q) => q.priority === "MAIN").length}
+        mainQuestCap={(await loadBalanceView()).mainQuestCap}
       />
     </div>
   );

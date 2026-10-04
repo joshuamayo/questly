@@ -134,7 +134,14 @@ export type ChronicleEntry = {
 };
 
 /** Fine-grained events kept for Quest history but left out of the Chronicle. */
-const QUIET_EVENTS = ["QUEST_OBJECTIVE_COMPLETED", "FOCUS_SESSION_COMPLETED", "BOSS_DESIGNATED"];
+const QUIET_EVENTS = [
+  "QUEST_OBJECTIVE_COMPLETED",
+  "FOCUS_SESSION_COMPLETED",
+  "BOSS_DESIGNATED",
+  "QUEST_CONTINUED",
+  "RESPAWN_QUEST_CHOSEN",
+  "GAME_BALANCE_CHANGED",
+];
 
 /** Recent account events for the World chronicle. Only real, recorded events. */
 export async function getRecentChronicle(db: Db, characterId: string, limit = 6): Promise<ChronicleEntry[]> {
@@ -190,6 +197,27 @@ export async function getRecentChronicle(db: Db, characterId: string, limit = 6)
         break;
       case "DIARY_TIER_CLAIMED":
         text = `Diary tier complete: ${String(p.tier).charAt(0)}${String(p.tier).slice(1).toLowerCase()} — ${p.period}`;
+        break;
+      case "REWARD_REDEEMED":
+        text = `Reward claimed: ${p.name} (−${p.gpCost} GP)`;
+        break;
+      case "RESPAWN_STARTED":
+        text = "You died. Nothing permanent was lost.";
+        break;
+      case "RESPAWNED":
+        text = "Respawned — back on the road.";
+        break;
+      case "RESPAWN_COMEBACK":
+        text = `Respawn Quest complete: +${p.xp} Focus XP comeback bonus`;
+        break;
+      case "STREAK_SHIELD_EARNED":
+        text = "Streak Shield earned.";
+        break;
+      case "STREAK_SHIELD_USED":
+        text = `A Streak Shield protected your streak (${(p.days as string[] | undefined)?.length ?? 1} day${((p.days as string[] | undefined)?.length ?? 1) === 1 ? "" : "s"}).`;
+        break;
+      case "ADVENTURE_BEGUN":
+        text = "A new week's adventure begins.";
         break;
       case "LEVEL_UP": {
         const name = skillName.get(String(p.skillKey)) ?? "A Skill";

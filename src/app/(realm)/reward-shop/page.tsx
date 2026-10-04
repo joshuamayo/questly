@@ -1,21 +1,32 @@
 import type { Metadata } from "next";
-import { SystemPlaceholder } from "@/components/system/SystemPlaceholder";
+import { PageBanner } from "@/components/art/PageBanner";
+import { RewardShop } from "@/components/rewards/RewardShop";
+import { loadRewardShop } from "@/server/queries";
 
 export const metadata: Metadata = { title: "Reward Shop" };
 
-export default function Page() {
+export default async function RewardShopPage() {
+  const shop = await loadRewardShop();
   return (
-    <SystemPlaceholder
-      slot="reward-shop"
-      title="Reward Shop"
-      icon="shop"
-      tagline="Turn your progress into real rewards."
-      description="The Reward Shop holds real-life rewards you define for yourself and redeem with GP earned from Quests."
-      features={[
-        "Create rewards worth fighting for",
-        "Redeem them with GP — never below zero",
-        "Keep a permanent redemption history",
-      ]}
-    />
+    <>
+      <PageBanner slot="reward-shop" title="Reward Shop" tagline="Turn your progress into real rewards." />
+      <RewardShop
+        balance={shop.balance}
+        rewards={shop.rewards.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          category: r.category,
+          icon: r.icon,
+          gpCost: r.gpCost,
+          repeatable: r.repeatable,
+          active: r.active,
+          estimatedValue: r.estimatedValue,
+          timesRedeemed: r.timesRedeemed,
+        }))}
+        history={shop.history.map((h) => ({ id: h.id, name: h.rewardNameSnapshot, gpCost: h.gpCostSnapshot, redeemedAt: h.redeemedAt.toISOString() }))}
+        templates={[...shop.templates]}
+      />
+    </>
   );
 }

@@ -12,6 +12,10 @@ import type { Db } from "../db/client";
 import { activityEvents, focusSessions, questObjectives, quests, type FocusSessionRow } from "../db/schema";
 import { syncProgression, type MetaUnlocks } from "../meta/sync";
 import { recordProgression } from "../progression/service";
+import { loadBalance } from "../settings/service";
+import { recordActivity } from "../streaks/service";
+import { trustedLocalDate } from "../requirements/service";
+import { FOCUS_XP } from "@/game/config/balance";
 
 export async function getActiveSession(db: Db, characterId: string): Promise<FocusSessionRow | null> {
   const [row] = await db
@@ -74,7 +78,13 @@ export type FocusCompletion = {
  * diminishing returns and the rolling 24-hour cap. Ending a session twice is
  * rejected; XP is awarded at most once per session (idempotency key).
  */
-export async function completeFocusSession(db: Db, characterId: string, sessionId: string, now: Date = new Date()): Promise<FocusCompletion> {
+export async function completeFocusSession(
+  db: Db,
+  characterId: string,
+  sessionId: string,
+  now: Date = new Date(),
+  localDate?: string | null,
+): Promise<FocusCompletion> {
   return db.transaction(async (tx) => {
     const [session] = await tx
       .select()
@@ -91,10 +101,15 @@ export async function completeFocusSession(db: Db, characterId: string, sessionI
       .from(focusSessions)
       .where(and(eq(focusSessions.characterId, characterId), eq(focusSessions.status, "COMPLETED"), gte(focusSessions.endedAt, since)));
     const min = minimumQualifyingMinutes();
-    const focusXp = focusXpFor(minutes, {
-      qualifyingSessions: recent.filter((r) => r.minutes >= min).length,
-      xpEarned: recent.reduce((s, r) => s + r.xp, 0),
-    });
+    const balance = await loadBalance(tx, characterId);
+    const focusXp = focusXpFor(
+      minutes,
+      {
+        qualifyingSessions: recent.filter((r) => r.minutes >= min).length,
+        xpEarned: recent.reduce((s, r) => s + r.xp, 0),
+      },
+      { ...FOCUS_XP, dailyXpCap: balance.focusDailyXpCap },
+    );
 
     let xp: XpGainResult | null = null;
     if (focusXp.xp > 0) {
@@ -120,6 +135,7 @@ export async function completeFocusSession(db: Db, characterId: string, sessionI
       entityId: session.questId ?? session.id,
       payload: { minutes, xp: updated.focusXpAwarded },
     });
+    if (minutes >= min) await recordActivity(tx, characterId, trustedLocalDate(localDate, now), { focus: true });
     const meta = await syncProgression(tx, characterId);
     return { session: updated, minutes, focusXp, xp, minimumMinutes: min, meta };
   });

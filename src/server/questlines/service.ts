@@ -5,7 +5,7 @@
  */
 
 import { and, eq, inArray } from "drizzle-orm";
-import { MAIN_QUEST_CAP } from "@/game/config/balance";
+import { loadBalance } from "../settings/service";
 import { GameRuleError } from "@/game/errors";
 import { assertAcyclic } from "@/game/questlines";
 import {
@@ -128,14 +128,15 @@ export async function acceptQuestlineQuest(
       ];
       throw new QuestRuleError(`This Quest is locked. Requirements: ${unmet.join("; ")}.`, "QUEST_LOCKED");
     }
+    const balance = await loadBalance(tx, characterId);
     if (options.priority === "MAIN") {
       const mains = await tx
         .select({ id: quests.id })
         .from(quests)
         .where(and(eq(quests.characterId, characterId), eq(quests.priority, "MAIN"), inArray(quests.status, [...ACTIVE_QUEST_STATUSES])));
-      assertMainQuestCapacity(mains.length, MAIN_QUEST_CAP);
+      assertMainQuestCapacity(mains.length, balance.mainQuestCap);
     }
-    const reward = rewardsFor(quest.difficulty as never);
+    const reward = rewardsFor(quest.difficulty as never, balance.questRewards);
     const now = new Date();
     const [updated] = await tx
       .update(quests)

@@ -1,6 +1,7 @@
 "use server";
 
 import { runAction } from "@/server/actions/run";
+import { actionToday } from "@/server/today";
 import { cancelFocusSession, completeFocusSession, startFocusSession } from "@/server/focus/service";
 
 export async function startFocusAction(input: { minutes: number; questId?: string | null; objectiveId?: string | null }) {
@@ -12,7 +13,7 @@ export async function startFocusAction(input: { minutes: number; questId?: strin
 
 export async function completeFocusAction(sessionId: string) {
   return runAction(async (db, c) => {
-    const r = await completeFocusSession(db, c, sessionId);
+    const r = await completeFocusSession(db, c, sessionId, new Date(), await actionToday());
     return {
       minutes: r.minutes,
       xp: r.focusXp.xp,

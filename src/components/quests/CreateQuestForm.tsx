@@ -10,7 +10,6 @@ import { GameButton } from "@/components/ui/GameButton";
 import { GamePanel } from "@/components/ui/GamePanel";
 import { Notice } from "@/components/ui/Notice";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { MAIN_QUEST_CAP } from "@/game/config/balance";
 import { LIMITS, rewardsFor } from "@/game/quests";
 import { QUEST_DIFFICULTIES, QUEST_DIFFICULTY_LABELS, type QuestDifficulty, type SkillKey } from "@/game/vocabulary";
 import { cx } from "@/lib/cx";
@@ -31,10 +30,12 @@ const label = "mb-1 block text-sm font-bold text-text-secondary";
 export function CreateQuestForm({
   skills,
   activeMainCount,
+  mainQuestCap,
   initialSkill,
 }: {
   skills: SkillOption[];
   activeMainCount: number;
+  mainQuestCap: number;
   initialSkill?: SkillKey;
 }) {
   const router = useRouter();
@@ -54,7 +55,7 @@ export function CreateQuestForm({
 
   const rewards = rewardsFor(difficulty);
   const skill = skills.find((s) => s.key === skillKey)!;
-  const mainFull = activeMainCount >= MAIN_QUEST_CAP;
+  const mainFull = activeMainCount >= mainQuestCap;
   const filledObjectives = objectives.map((o) => o.trim()).filter(Boolean);
 
   function submit(e: React.FormEvent) {
@@ -262,8 +263,8 @@ export function CreateQuestForm({
                 </div>
                 <p className="mt-1.5 text-sm text-text-muted">
                   {mainFull
-                    ? `You already have ${MAIN_QUEST_CAP} Main Quests. Complete one to choose another.`
-                    : `Main Quests are your top priorities — up to ${MAIN_QUEST_CAP} at a time (${activeMainCount} chosen).`}
+                    ? `You already have ${mainQuestCap} Main Quests. Complete one to choose another.`
+                    : `Main Quests are your top priorities — up to ${mainQuestCap} at a time (${activeMainCount} chosen).`}
                 </p>
               </fieldset>
               <div>

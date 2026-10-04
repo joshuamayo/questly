@@ -158,7 +158,7 @@ export function DiaryBoard({ weekly, monthly, daysLeft }: { weekly: DiaryView; m
                       disabled={pending || !tier.claimable}
                       onClick={() =>
                         act(() => claimDiaryTierAction(tab, tier.tier, localToday()), (r) =>
-                          setNotice(`Diary Tier Complete! ${DIARY_TIER_LABELS[tier.tier]}: +${r.reward.gp} GP, +${r.reward.focusXp} Focus XP${r.levelUp ? ` — Focus reached Level ${r.levelUp.toLevel}!` : ""}`),
+                          setNotice(`Diary Tier Complete! ${DIARY_TIER_LABELS[tier.tier]}: +${r.reward.gp} GP, +${r.reward.focusXp} Focus XP${r.levelUp ? ` — Focus reached Level ${r.levelUp.toLevel}!` : ""}${r.shield ? " A Streak Shield was earned." : ""}`),
                         )
                       }
                     >

@@ -99,10 +99,34 @@ export const BOSS_BOUNTY = {
   lateGp: 0,
 } as const;
 
-/** Respawn suggestion thresholds (Product Spec §23). Consumed in Phase 5. */
+/** Respawn suggestion thresholds (Product Spec §23). */
 export const RESPAWN_THRESHOLDS = {
   missedPlannedWorkdays: 3,
   questsNeedingAttention: 5,
+} as const;
+
+/**
+ * Respawn recovery (Product Spec §23.2): completing the one Respawn Quest
+ * grants a small Focus XP comeback bonus, and recommendations stay lighter
+ * for a short recovery window. Dismissing the suggestion hides it for a while.
+ */
+export const RESPAWN = {
+  comebackFocusXp: 50,
+  recoveryDays: 7,
+  dismissDays: 7,
+} as const;
+
+/**
+ * Streak Shields (Product Spec §21): earned from demanding Diary tiers, held
+ * up to a small limit, and spent automatically to protect a missed planned
+ * workday for the Adventure and Focus streaks (never the Deadline streak).
+ */
+export const STREAK_SHIELDS = {
+  maxHeld: 3,
+  grantedBy: {
+    WEEKLY: ["ELITE"],
+    MONTHLY: ["HARD", "ELITE"],
+  },
 } as const;
 
 /** Maximum recommended simultaneous Main Quests (Product Spec §8.5). */
@@ -155,5 +179,7 @@ export const GAME_BALANCE = {
   combatPointsByTier: COMBAT_POINTS_BY_TIER,
   diaryRewards: DIARY_REWARDS,
   respawnThresholds: RESPAWN_THRESHOLDS,
+  respawn: RESPAWN,
+  streakShields: STREAK_SHIELDS,
   mainQuestCap: MAIN_QUEST_CAP,
 } as const;

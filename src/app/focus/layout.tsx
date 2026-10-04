@@ -6,7 +6,9 @@ import { Wordmark } from "@/components/shell/Wordmark";
 import { NoCharacterState } from "@/components/system/NoCharacterState";
 import { CharacterNotFoundError } from "@/game/errors";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, toCharacterStatus, type CharacterSheet } from "@/server/queries";
+import { loadCharacterSheet, loadSettingsView, toCharacterStatus, type CharacterSheet } from "@/server/queries";
+import { MotionPreference } from "@/components/system/MotionPreference";
+import { TimezoneSync } from "@/components/system/TimezoneSync";
 
 /**
  * Focus Mode shell: navigation is minimized to an exit, so one Quest and one
@@ -21,8 +23,11 @@ export default async function FocusLayout({ children }: { children: React.ReactN
     throw error;
   }
   const iconArt = Object.fromEntries(ICON_ART_SLOTS.map((slot) => [slot, artUrl(slot)]));
+  const settings = await loadSettingsView();
   return (
     <ArtProvider manifest={iconArt}>
+      <TimezoneSync />
+      <MotionPreference motion={settings.motion} />
       <div className="flex min-h-dvh flex-col">
         <header className="flex items-center gap-3 border-b border-border-dark px-3 py-2 shadow-[inset_0_-1px_0_var(--color-bronze)] sm:px-6">
           <Wordmark compact />

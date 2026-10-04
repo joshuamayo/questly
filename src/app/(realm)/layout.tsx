@@ -4,11 +4,13 @@ import { SideRail } from "@/components/shell/SideRail";
 import { StatusBar } from "@/components/shell/StatusBar";
 import { NoCharacterState } from "@/components/system/NoCharacterState";
 import { TooltipProvider } from "@/components/ui/Tooltip";
+import { TimezoneSync } from "@/components/system/TimezoneSync";
+import { MotionPreference } from "@/components/system/MotionPreference";
 import { CharacterNotFoundError } from "@/game/errors";
 import { ArtProvider } from "@/components/art/ArtContext";
 import { ICON_ART_SLOTS } from "@/components/icons/art-slots";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, toCharacterStatus, type CharacterSheet } from "@/server/queries";
+import { loadCharacterSheet, loadSettingsView, toCharacterStatus, type CharacterSheet } from "@/server/queries";
 
 /** The persistent Questly shell: rail + status bar around every realm screen. */
 export default async function RealmLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +24,7 @@ export default async function RealmLayout({ children }: { children: React.ReactN
   const status = toCharacterStatus(sheet);
   const bustUrl = artUrl("character/bust");
 
+  const settings = await loadSettingsView();
   const iconArt = Object.fromEntries(ICON_ART_SLOTS.map((slot) => [slot, artUrl(slot)]));
 
   return (
@@ -33,6 +36,8 @@ export default async function RealmLayout({ children }: { children: React.ReactN
       >
         Skip to content
       </a>
+      <TimezoneSync />
+      <MotionPreference motion={settings.motion} />
       <div className="flex min-h-dvh">
         <SideRail sheet={sheet} characterArtUrl={artUrl("character/full")} />
         <div className="relative flex min-w-0 flex-1 flex-col">

@@ -5,6 +5,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { RESPAWN } from "@/game/config/balance";
 import { bountyFor, type BountySnapshot, type BountyTier } from "@/game/bosses";
 import { questlineBonus } from "@/game/questlines";
 import type { RequirementContext } from "@/game/requirements";
@@ -23,6 +24,8 @@ export type PipelineResult = {
   unlocked: { id: string; title: string }[];
   questline: { id: string; title: string; bonusXp: number; bonusGp: number; skillKey: SkillKey } | null;
   levelUps: LevelUpInfo[];
+  /** Focus XP comeback bonus for completing the Respawn Quest. */
+  comeback: { xp: number } | null;
 };
 
 export async function onQuestCompleted(
@@ -32,7 +35,7 @@ export async function onQuestCompleted(
   today: string,
   ctxBefore: RequirementContext,
 ): Promise<PipelineResult> {
-  const result: PipelineResult = { boss: null, unlocked: [], questline: null, levelUps: [], meta: emptyUnlocks() };
+  const result: PipelineResult = { boss: null, unlocked: [], questline: null, levelUps: [], meta: emptyUnlocks(), comeback: null };
 
   // 1. Boss bounty — bonus GP only, never deducts, never replaces Quest rewards.
   if (quest.isBoss) {
@@ -89,7 +92,27 @@ export async function onQuestCompleted(
     }
   }
 
-  // 3. New Quests available: anything that was locked before and is unlocked now.
+  // 3. Respawn Quest comeback bonus (once).
+  if (quest.isRespawnQuest && RESPAWN.comebackFocusXp > 0) {
+    const r = await recordProgression(tx, characterId, {
+      kind: "XP",
+      skillKey: "focus",
+      amount: RESPAWN.comebackFocusXp,
+      sourceType: "QUEST",
+      sourceId: quest.id,
+      idempotencyKey: `quest:${quest.id}:respawn`,
+      metadata: { questTitle: quest.title, comeback: true },
+    });
+    if (!r.duplicate && r.xp && r.xp.appliedXp > 0) {
+      result.comeback = { xp: r.xp.appliedXp };
+      await tx.insert(activityEvents).values({ characterId, type: "RESPAWN_COMEBACK", entityId: quest.id, payload: { xp: r.xp.appliedXp } });
+      if (r.xp.leveledUp) {
+        result.levelUps.push({ skillKey: "focus", fromLevel: r.xp.previousLevel, toLevel: r.xp.newLevel, levelsReached: r.xp.levelsReached });
+      }
+    }
+  }
+
+  // 4. New Quests available: anything that was locked before and is unlocked now.
   const available = await tx
     .select({ id: quests.id, title: quests.title })
     .from(quests)
@@ -105,7 +128,7 @@ export async function onQuestCompleted(
       }
     }
   }
-  // 4. Combat Achievements, Collection Log, Titles.
+  // 5. Combat Achievements, Collection Log, Titles.
   result.meta = await syncProgression(tx, characterId);
   return result;
 }

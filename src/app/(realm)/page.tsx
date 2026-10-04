@@ -17,7 +17,22 @@ import { Greeting } from "@/components/world/Greeting";
 import { YourCharacterPanel } from "@/components/world/YourCharacterPanel";
 import { formatNumber } from "@/lib/format";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, loadChronicle, loadCollection, loadCurrentAdventure, loadCurrentBoss, loadDiary, loadQuestlineDetail, loadQuestlines } from "@/server/queries";
+import {
+  loadCharacterSheet,
+  loadChronicle,
+  loadCollection,
+  loadCurrentAdventure,
+  loadCurrentBoss,
+  loadDiary,
+  loadNeedsAttention,
+  loadQuestlineDetail,
+  loadQuestlines,
+  loadRespawnSuggestion,
+  loadStreaks,
+  loadTodayPlan,
+} from "@/server/queries";
+import { AdventureNotices } from "@/components/world/AdventureNotices";
+import { StreakChips } from "@/components/world/StreakChips";
 import { DIARY_TIER_LABELS } from "@/game/diaries";
 import { nodeState } from "@/components/questlines/node-state";
 import { DifficultyBadge } from "@/components/quests/DifficultyBadge";
@@ -34,14 +49,22 @@ function ViewAll({ href, label }: { href: string; label: string }) {
   );
 }
 
-export default async function WorldPage() {
-  const [sheet, chronicle, adventure, boss, lines] = await Promise.all([
+export default async function WorldPage({ searchParams }: PageProps<"/">) {
+  const [sheet, chronicle, fallbackAdventure, boss, lines, plan, streaks, attention, respawn, params] = await Promise.all([
     loadCharacterSheet(),
     loadChronicle(5),
     loadCurrentAdventure(),
     loadCurrentBoss(),
     loadQuestlines(),
+    loadTodayPlan(),
+    loadStreaks(),
+    loadNeedsAttention(),
+    loadRespawnSuggestion(),
+    searchParams,
   ]);
+  // Today's recommendation (planned Quest, Respawn Quest, Boss, Main…) leads; otherwise the most likely current Quest.
+  const recommended = plan.recommendations[0] ?? null;
+  const adventure = recommended ?? fallbackAdventure;
   const [weekly, collection] = await Promise.all([loadDiary("WEEKLY"), loadCollection()]);
   const weeklyTier = weekly.tiers.find((t) => !t.claimed) ?? null;
   const owned = collection.filter((c) => c.state === "UNLOCKED");
@@ -76,12 +99,21 @@ export default async function WorldPage() {
               Day {formatNumber(sheet.adventureDay)} of your adventure · Adventuring since{" "}
               <LocalDate iso={sheet.createdAt} />
             </p>
+            <StreakChips streaks={streaks} className="mt-3 flex flex-wrap gap-2" />
           </div>
           <div className="w-full max-w-xl xl:mt-12 xl:w-[30rem] xl:shrink-0">
             <YourCharacterPanel sheet={sheet} artUrl={artUrl("character/full")} />
           </div>
         </div>
       </section>
+
+      <AdventureNotices
+        respawn={respawn}
+        attentionCount={attention.length}
+        planningDue={plan.planningDue}
+        inRecovery={plan.inRecovery}
+        justRespawned={params.respawned === "1"}
+      />
 
       {/* ── Adventure row ─────────────────────────────────────────────── */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr]">
@@ -117,6 +149,7 @@ export default async function WorldPage() {
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-300">
                     {adventure.priority === "MAIN" ? "Main Quest" : "Side Quest"} · {QUEST_STATUS_LABELS[adventure.status]}
                   </p>
+                  {recommended && <p className="text-sm text-gold-200">Today&apos;s recommendation · {recommended.reason}</p>}
                   <p className="q-title text-2xl leading-tight text-text-primary">{adventure.title}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <DifficultyBadge difficulty={adventure.difficulty} />

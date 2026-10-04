@@ -9,6 +9,7 @@ import { GameRuleError } from "@/game/errors";
 import { ACTIVE_QUEST_STATUSES, isActiveStatus } from "@/game/quests";
 import type { Db } from "../db/client";
 import { activityEvents, quests } from "../db/schema";
+import { loadBalance } from "../settings/service";
 
 export async function designateBoss(db: Db, characterId: string, questId: string) {
   return db.transaction(async (tx) => {
@@ -33,7 +34,7 @@ export async function designateBoss(db: Db, characterId: string, questId: string
       );
     const [updated] = await tx
       .update(quests)
-      .set({ isBoss: true, bounty: snapshotBounty(), bossDesignatedAt: new Date(), updatedAt: new Date() })
+      .set({ isBoss: true, bounty: snapshotBounty((await loadBalance(tx, characterId)).bounty), bossDesignatedAt: new Date(), updatedAt: new Date() })
       .where(eq(quests.id, questId))
       .returning();
     await tx.insert(activityEvents).values({ characterId, type: "BOSS_DESIGNATED", entityId: questId, payload: { title: quest.title } });

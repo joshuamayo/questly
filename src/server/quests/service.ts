@@ -5,7 +5,7 @@
  */
 
 import { and, asc, eq, inArray, max, sql } from "drizzle-orm";
-import { MAIN_QUEST_CAP, QUEST_REWARDS, type QuestReward } from "@/game/config/balance";
+import type { QuestReward } from "@/game/config/balance";
 import { totalLevel } from "@/game/character";
 import { GameRuleError } from "@/game/errors";
 import {
@@ -41,6 +41,9 @@ import {
 import { recordProgression } from "../progression/service";
 import { buildRequirementContext, trustedLocalDate } from "../requirements/service";
 import { onQuestCompleted, type LevelUpInfo, type PipelineResult } from "./pipeline";
+import { loadBalance } from "../settings/service";
+import { recordActivity } from "../streaks/service";
+import { recordDateChange } from "./history";
 
 export class QuestNotFoundError extends GameRuleError {
   constructor() {
@@ -94,12 +97,13 @@ export async function createQuest(
   db: Db,
   characterId: string,
   input: QuestDraftInput & { templateKey?: string | null },
-  balance: Balance = QUEST_REWARDS,
+  balance?: Balance,
 ): Promise<QuestRow> {
   const draft = validateQuestDraft(input);
-  const reward = rewardsFor(draft.difficulty, balance);
   return db.transaction(async (tx) => {
-    if (draft.priority === "MAIN") assertMainQuestCapacity(await activeMainCount(tx, characterId));
+    const live = await loadBalance(tx, characterId);
+    const reward = rewardsFor(draft.difficulty, balance ?? live.questRewards);
+    if (draft.priority === "MAIN") assertMainQuestCapacity(await activeMainCount(tx, characterId), live.mainQuestCap);
     const now = new Date();
     const [quest] = await tx
       .insert(quests)
@@ -138,7 +142,7 @@ export async function acceptTemplate(
   characterId: string,
   templateKey: string,
   options: { targetDate?: string | null; deadline?: string | null; priority?: QuestPriority } = {},
-  balance: Balance = QUEST_REWARDS,
+  balance?: Balance,
 ): Promise<QuestRow> {
   const [template] = await db.select().from(questTemplates).where(eq(questTemplates.key, templateKey));
   if (!template) throw new QuestRuleError("That Quest is no longer on the board.", "TEMPLATE_NOT_FOUND");
@@ -167,7 +171,14 @@ export async function acceptTemplate(
 // Objectives (they advance progress; they never award XP on their own)
 // ---------------------------------------------------------------------------
 
-export async function setObjectiveDone(db: Db, characterId: string, questId: string, objectiveId: string, done: boolean) {
+export async function setObjectiveDone(
+  db: Db,
+  characterId: string,
+  questId: string,
+  objectiveId: string,
+  done: boolean,
+  options: { localDate?: string | null; now?: Date } = {},
+) {
   return db.transaction(async (tx) => {
     const quest = await lockQuest(tx, characterId, questId);
     assertCanPerform("COMPLETE_OBJECTIVE", quest.status as QuestStatus);
@@ -182,6 +193,7 @@ export async function setObjectiveDone(db: Db, characterId: string, questId: str
     await tx.update(quests).set({ status, updatedAt: new Date() }).where(eq(quests.id, questId));
     if (done) {
       await logEvent(tx, characterId, "QUEST_OBJECTIVE_COMPLETED", questId, { objectiveId, title: updated[0].title });
+      await recordActivity(tx, characterId, trustedLocalDate(options.localDate, options.now));
     }
     return progress;
   });
@@ -253,6 +265,8 @@ export type QuestDetailsInput = {
   targetDate?: string | null;
   deadline?: string | null;
   notes?: string;
+  /** Why the dates changed, for the Quest's date history. */
+  reason?: "EDIT" | "CONTINUE" | "RESCOPE" | "RESPAWN";
 };
 
 /**
@@ -263,7 +277,7 @@ export type QuestDetailsInput = {
 export async function updateQuestDetails(db: Db, characterId: string, questId: string, input: QuestDetailsInput) {
   return db.transaction(async (tx) => {
     const quest = await lockQuest(tx, characterId, questId);
-    const onlyNotes = Object.keys(input).every((k) => k === "notes");
+    const onlyNotes = Object.keys(input).every((k) => k === "notes" || k === "reason");
     if (!onlyNotes) assertCanPerform("EDIT", quest.status as QuestStatus);
     const set: Partial<QuestRow> = { updatedAt: new Date() };
     if (input.title !== undefined) set.title = normalizeTitle(input.title);
@@ -274,7 +288,12 @@ export async function updateQuestDetails(db: Db, characterId: string, questId: s
     }
     if (input.targetDate !== undefined) set.targetDate = normalizeDate(input.targetDate, "Target date");
     if (input.deadline !== undefined) set.deadline = normalizeDate(input.deadline, "Hard deadline");
-    assertDateOrder(set.targetDate ?? quest.targetDate, set.deadline ?? quest.deadline);
+    assertDateOrder(
+      set.targetDate !== undefined ? set.targetDate : quest.targetDate,
+      set.deadline !== undefined ? set.deadline : quest.deadline,
+    );
+    if (set.targetDate !== undefined) await recordDateChange(tx, questId, "TARGET", quest.targetDate, set.targetDate, input.reason ?? "EDIT");
+    if (set.deadline !== undefined) await recordDateChange(tx, questId, "DEADLINE", quest.deadline, set.deadline, input.reason ?? "EDIT");
     if (input.notes !== undefined) {
       if (input.notes.length > LIMITS.notesMax) throw new QuestRuleError("Notes are too long.", "NOTES_TOO_LONG");
       set.notes = input.notes;
@@ -289,7 +308,7 @@ export async function setQuestPriority(db: Db, characterId: string, questId: str
     const quest = await lockQuest(tx, characterId, questId);
     assertCanPerform("EDIT", quest.status as QuestStatus);
     if (priority === "MAIN" && quest.priority !== "MAIN") {
-      assertMainQuestCapacity(await activeMainCount(tx, characterId, questId));
+      assertMainQuestCapacity(await activeMainCount(tx, characterId, questId), (await loadBalance(tx, characterId)).mainQuestCap);
     }
     await tx.update(quests).set({ priority, updatedAt: new Date() }).where(eq(quests.id, questId));
   });
@@ -315,7 +334,7 @@ async function transition(
       if (action === "RESTORE" && quest.priority === "MAIN") {
         // Restoring must not silently exceed the Main Quest cap.
         const count = await activeMainCount(tx, characterId, questId);
-        if (count >= MAIN_QUEST_CAP) await tx.update(quests).set({ priority: "SIDE" }).where(eq(quests.id, questId));
+        if (count >= (await loadBalance(tx, characterId)).mainQuestCap) await tx.update(quests).set({ priority: "SIDE" }).where(eq(quests.id, questId));
       }
       const status = activeStatusFor(questProgress(await objectivesOf(tx, questId)));
       await tx
@@ -347,6 +366,7 @@ export type QuestCompletion = {
   unlocked: PipelineResult["unlocked"];
   questline: PipelineResult["questline"];
   meta: PipelineResult["meta"];
+  comeback: PipelineResult["comeback"];
   totals: { totalLevelBefore: number; totalLevelAfter: number; gpBalance: number; questPoints: number };
 };
 
@@ -388,6 +408,7 @@ export async function completeQuest(
         unlocked: [],
         questline: null,
         meta: { achievements: [], collection: [], titles: [] },
+        comeback: null,
         totals: { totalLevelBefore: level, totalLevelAfter: level, gpBalance: c.gpBalance, questPoints: c.questPoints },
       };
     }
@@ -426,6 +447,7 @@ export async function completeQuest(
       await recordProgression(tx, characterId, { kind: "QP", amount: rewards.qp, ...source, idempotencyKey: `quest:${questId}:qp` });
     }
     await logEvent(tx, characterId, "QUEST_COMPLETED", questId, { title: quest.title, ...rewards, skillKey });
+    await recordActivity(tx, characterId, today);
 
     const pipeline = await onQuestCompleted(tx, characterId, { ...quest, status: "COMPLETED", completedAt: now }, today, ctxBefore);
     levelUps.push(...pipeline.levelUps);
@@ -441,6 +463,7 @@ export async function completeQuest(
       unlocked: pipeline.unlocked,
       questline: pipeline.questline,
       meta: pipeline.meta,
+      comeback: pipeline.comeback,
       totals: {
         totalLevelBefore,
         totalLevelAfter: totalLevel(Object.fromEntries(afterRows.map((r) => [r.skillKey, r.xp]))),

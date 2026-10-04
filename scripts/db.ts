@@ -12,6 +12,8 @@ import { seedContent } from "@/server/seed/content";
 import { seedDemoProgression, seedDevelopmentCharacter } from "@/server/seed/development";
 import { reconcileCharacter } from "@/server/progression/service";
 import { syncProgression } from "@/server/meta/sync";
+import { backfillActivityDays } from "@/server/streaks/service";
+import { minimumQualifyingMinutes } from "@/game/focus";
 
 async function main() {
   const command = process.argv[2];
@@ -39,6 +41,7 @@ async function main() {
       const unlocks = await syncProgression(db, character.id);
       const n = unlocks.achievements.length + unlocks.collection.length + unlocks.titles.length;
       if (n) console.log(`✓ Progression synced: ${n} newly earned (achievements, collection, titles)`);
+      await backfillActivityDays(db, character.id, minimumQualifyingMinutes());
     }
     if (command === "seed-demo") {
       await seedContent(db);

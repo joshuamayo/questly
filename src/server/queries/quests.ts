@@ -8,7 +8,7 @@ import { ACTIVE_QUEST_STATUSES, questProgress, type QuestPriority, type QuestPro
 import type { QuestDifficulty, SkillKey } from "@/game/vocabulary";
 import { applyXpGain } from "@/game/xp";
 import type { Db } from "../db/client";
-import { activityEvents, characterSkills, questObjectives, questTemplates, questlines, quests, skills } from "../db/schema";
+import { activityEvents, characterSkills, questDateChanges, questObjectives, questTemplates, questlines, quests, skills } from "../db/schema";
 import { buildRequirementContext, lockStates, serverToday, type LockState } from "../requirements/service";
 import { QuestNotFoundError } from "../quests/service";
 
@@ -30,6 +30,8 @@ export type QuestSummary = {
   acceptedAt: string | null;
   completedAt: string | null;
   abandonedAt: string | null;
+  isBoss: boolean;
+  isRespawnQuest: boolean;
 };
 
 export type QuestObjectiveView = { id: string; title: string; position: number; done: boolean; completedAt: string | null };
@@ -45,6 +47,8 @@ export type QuestDetail = QuestSummary & {
   activity: { id: string; type: string; text: string; createdAt: string }[];
   /** What completing this Quest would do to its Skill (engine output). */
   xpOutcome: { fromLevel: number; toLevel: number; levelsGained: number } | null;
+  /** Every target/deadline change, oldest first — original dates are never lost. */
+  dateHistory: { field: string; oldValue: string | null; newValue: string | null; reason: string; changedAt: string }[];
 };
 
 
@@ -83,6 +87,8 @@ async function loadSummaries(db: Db, rows: (typeof quests.$inferSelect)[]): Prom
       acceptedAt: q.acceptedAt?.toISOString() ?? null,
       completedAt: q.completedAt?.toISOString() ?? null,
       abandonedAt: q.abandonedAt?.toISOString() ?? null,
+      isBoss: q.isBoss,
+      isRespawnQuest: q.isRespawnQuest,
     };
   });
 }
@@ -137,6 +143,9 @@ const EVENT_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
   BOSS_DESIGNATED: () => "Designated as the Current Boss.",
   BOSS_DEFEATED: (p) => (Number(p.bountyGp) > 0 ? `Boss defeated! Bounty +${p.bountyGp} GP.` : "Boss defeated!"),
   NEW_QUEST_AVAILABLE: () => "New Quest available.",
+  RESPAWN_QUEST_CHOSEN: () => "Chosen as the Respawn Quest.",
+  RESPAWN_COMEBACK: (p) => `Comeback bonus: +${p.xp} Focus XP.`,
+  QUEST_CONTINUED: (p) => `Quest continued with a new target${p.targetDate ? ` (${p.targetDate})` : ""}.`,
   FOCUS_SESSION_COMPLETED: (p) => `Focus session: ${p.minutes} min${Number(p.xp) > 0 ? `, +${p.xp} Focus XP` : ""}.`,
 };
 
@@ -144,7 +153,7 @@ export async function getQuestDetail(db: Db, characterId: string, questId: strin
   const [row] = await db.select().from(quests).where(and(eq(quests.id, questId), eq(quests.characterId, characterId)));
   if (!row) throw new QuestNotFoundError();
   const [summary] = await loadSummaries(db, [row]);
-  const [objectives, events, skillRow] = await Promise.all([
+  const [objectives, events, skillRow, history] = await Promise.all([
     db.select().from(questObjectives).where(eq(questObjectives.questId, questId)).orderBy(asc(questObjectives.position)),
     db
       .select()
@@ -156,6 +165,7 @@ export async function getQuestDetail(db: Db, characterId: string, questId: strin
       .select({ xp: characterSkills.xp })
       .from(characterSkills)
       .where(and(eq(characterSkills.characterId, characterId), eq(characterSkills.skillKey, row.skillKey))),
+    db.select().from(questDateChanges).where(eq(questDateChanges.questId, questId)).orderBy(asc(questDateChanges.changedAt)),
   ]);
   const gain = row.status !== "COMPLETED" && row.rewardXp > 0 ? applyXpGain(skillRow[0]?.xp ?? 0, row.rewardXp) : null;
   const [line] = row.questlineId
@@ -186,6 +196,7 @@ export async function getQuestDetail(db: Db, characterId: string, questId: strin
       text: (EVENT_TEXT[e.type] ?? (() => e.type))((e.payload ?? {}) as Record<string, unknown>),
       createdAt: e.createdAt.toISOString(),
     })),
+    dateHistory: history.map((h) => ({ field: h.field, oldValue: h.oldValue, newValue: h.newValue, reason: h.reason, changedAt: h.changedAt.toISOString() })),
     xpOutcome: gain ? { fromLevel: gain.previousLevel, toLevel: gain.newLevel, levelsGained: gain.levelsGained } : null,
   };
 }
