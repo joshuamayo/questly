@@ -103,3 +103,16 @@ That's it — Questly is live, and only your email can get in.
 | No email arrives | Check spam; wait a minute (rate limit); confirm the email exactly matches `QUESTLY_ALLOWED_EMAILS`. |
 | "That sign-in link has expired or was already used" | Request a new link and open it in the same browser you requested it from. |
 | Link opens Supabase with an error about redirects | The `/auth/callback` URL in Step 3 doesn't match your site address. |
+
+---
+
+## This deployment (as configured)
+
+- **Site:** https://questly-joshuamayo2-4370.vercel.app (Vercel project `questly`, functions in `pdx1`).
+- **Database:** Supabase project `Questly` (`us-west-2`). The app connects as a dedicated role, `questly_app`,
+  through the **transaction pooler at `aws-0-us-west-2.pooler.supabase.com:6543`**, so the username is
+  `questly_app.<project-ref>`. The role owns Questly's tables, is not a superuser, and cannot bypass RLS.
+  To rotate its password: `ALTER ROLE questly_app PASSWORD '…'` in the Supabase SQL editor, then update
+  `DATABASE_URL` in Vercel and redeploy.
+- **Vercel Authentication** is limited to preview deployments; production relies on Questly's own sign-in.
+- **Build command:** `npm run vercel-build` (migrations + seed content, then `next build`).

@@ -78,5 +78,9 @@ async function main() {
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
+  // Drizzle wraps driver errors ("Failed query: …"); the cause holds the real reason.
+  for (let cause = (error as { cause?: unknown })?.cause; cause; cause = (cause as { cause?: unknown }).cause) {
+    console.error("Caused by:", cause instanceof Error ? cause.message : cause);
+  }
   process.exit(1);
 });
