@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import { cx } from "@/lib/cx";
 
-/** A labeled stat in a recessed plate, e.g. "Total XP 12,400". */
+/**
+ * A labeled stat in a recessed plate, e.g. "Total XP 12,400". Render inside a
+ * <dl>; the icon sits in the <dt> so the list stays valid markup.
+ */
 export function StatBadge({
   label,
   value,
@@ -20,30 +23,20 @@ export function StatBadge({
   return (
     <div
       className={cx(
-        "flex items-center gap-3 rounded-sm border px-3 py-2",
+        "relative flex min-h-12 flex-col justify-center rounded-sm border py-2 pr-3 leading-tight",
+        icon ? "pl-12" : "pl-3",
         tone === "dark"
           ? "q-well border-border-dark"
           : "border-parchment-400/70 bg-parchment-50/50 shadow-[inset_0_1px_3px_rgb(90_60_20/0.2)]",
         className,
       )}
     >
-      {icon}
-      <div className="min-w-0 leading-tight">
-        <dt
-          className={cx(
-            "text-xs font-bold uppercase tracking-[0.12em]",
-            tone === "dark" ? "text-text-muted" : "text-parchment-ink-soft",
-          )}
-        >
-          {label}
-        </dt>
-        <dd className={cx("text-lg font-bold tabular-nums", tone === "dark" ? "text-text-primary" : "text-parchment-ink")}>
-          {value}
-        </dd>
-        {hint && (
-          <dd className={cx("text-xs", tone === "dark" ? "text-text-muted" : "text-parchment-ink-soft")}>{hint}</dd>
-        )}
-      </div>
+      <dt className={cx("text-xs font-bold uppercase tracking-[0.12em]", tone === "dark" ? "text-text-muted" : "text-parchment-ink-soft")}>
+        {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</span>}
+        {label}
+      </dt>
+      <dd className={cx("text-lg font-bold tabular-nums", tone === "dark" ? "text-text-primary" : "text-parchment-ink")}>{value}</dd>
+      {hint && <dd className={cx("text-xs", tone === "dark" ? "text-text-muted" : "text-parchment-ink-soft")}>{hint}</dd>}
     </div>
   );
 }

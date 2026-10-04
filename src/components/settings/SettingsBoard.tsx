@@ -81,6 +81,18 @@ export function SettingsBoard({
             Begin a Respawn
           </GameLinkButton>
         </Section>
+        <Section id="settings-records" title="Your Records" icon="collection">
+          <p className="text-text-secondary">
+            Download your whole adventure — Quests, objectives, progression ledger, achievements, Collection Log, rewards, and history — as a JSON file.
+          </p>
+          <a
+            href="/export"
+            download
+            className="q-title mt-3 inline-flex min-h-11 items-center gap-2 rounded-sm border border-blue-600 bg-stone-850 px-5 text-text-primary hover:border-blue-400 hover:bg-stone-800"
+          >
+            <PixelIcon name="diaries" size={18} /> Export My Adventure
+          </a>
+        </Section>
         <BalanceSection balance={balance} defaults={defaults} />
       </div>
     </div>

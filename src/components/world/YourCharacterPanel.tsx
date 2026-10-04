@@ -50,12 +50,14 @@ export function YourCharacterPanel({ sheet, artUrl }: { sheet: CharacterSheet; a
           { icon: "combat-points" as const, label: "Combat Points", value: sheet.combatPoints },
           { icon: "gp" as const, label: "GP", value: sheet.gp.balance },
         ].map((stat) => (
-          <div key={stat.label} className="flex items-center gap-2 px-2.5 py-2.5 sm:gap-2.5 sm:px-4">
-            <PixelIcon name={stat.icon} size={26} />
-            <div className="leading-tight">
-              <dt className="text-sm text-text-secondary">{stat.label}</dt>
-              <dd className="text-lg font-bold tabular-nums text-text-primary">{formatNumber(stat.value)}</dd>
-            </div>
+          <div key={stat.label} className="relative py-2.5 pl-11 pr-2.5 leading-tight sm:pl-14 sm:pr-4">
+            <dt className="text-sm text-text-secondary">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 sm:left-4">
+                <PixelIcon name={stat.icon} size={26} />
+              </span>
+              {stat.label}
+            </dt>
+            <dd className="text-lg font-bold tabular-nums text-text-primary">{formatNumber(stat.value)}</dd>
           </div>
         ))}
       </dl>

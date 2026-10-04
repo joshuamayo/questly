@@ -24,6 +24,10 @@
   and Deadline streaks with Streak Shields from Diary tiers; Quests Need Attention (Continue / Rescope / Abandon,
   original dates kept in date history); six-step Weekly Planning with daily Quest recommendations; and a guided
   Respawn ("You Died — nothing permanent was lost") with a one-time comeback bonus and resilience stats.
+- **Phase 6 — Polish:** full-account JSON export (Settings → Export My Adventure, or `GET /export`); zero axe
+  WCAG 2.1 AA violations across every screen at desktop and phone widths; a player "always reduce motion"
+  setting on top of the OS preference; viewer-local dates via the browser timezone; Focus Mode loading state.
+  Audio is intentionally not included in V1 (optional per the constitution).
 
 ## Quick start
 

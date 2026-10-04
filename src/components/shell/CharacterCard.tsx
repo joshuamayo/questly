@@ -35,16 +35,16 @@ export function CharacterCard({ sheet, fullUrl }: { sheet: CharacterSheet; fullU
       </div>
       <dl className="mt-2.5 space-y-1 border-t border-stone-700 pt-2 text-sm">
         <div className="flex items-center gap-2">
-          <PixelIcon name="qp" size={16} />
           <dt className="sr-only">Quest Points</dt>
-          <dd className="text-text-secondary">
+          <dd className="flex items-center gap-2 text-text-secondary">
+            <PixelIcon name="qp" size={16} />
             <span className="font-bold text-text-primary">{formatNumber(sheet.questPoints)}</span> Quest Points
           </dd>
         </div>
         <div className="flex items-center gap-2">
-          <PixelIcon name="combat-points" size={16} />
           <dt className="sr-only">Combat Points</dt>
-          <dd className="text-text-secondary">
+          <dd className="flex items-center gap-2 text-text-secondary">
+            <PixelIcon name="combat-points" size={16} />
             <span className="font-bold text-text-primary">{formatNumber(sheet.combatPoints)}</span> Combat Points
           </dd>
         </div>

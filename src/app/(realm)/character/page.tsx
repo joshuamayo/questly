@@ -36,9 +36,11 @@ export const metadata: Metadata = { title: "Character" };
 function StatTile({ icon, label, value }: { icon: SpriteName; label: string; value: number }) {
   return (
     <div className="q-tile flex flex-col items-center gap-1 px-2 py-3 text-center">
-      <PixelIcon name={icon} size={36} />
-      <dd className="q-title text-2xl leading-none tabular-nums text-text-primary">{formatNumber(value)}</dd>
-      <dt className="text-sm text-text-secondary">{label}</dt>
+      <dt className="order-last text-sm text-text-secondary">{label}</dt>
+      <dd className="flex flex-col items-center gap-1">
+        <PixelIcon name={icon} size={36} />
+        <span className="q-title text-2xl leading-none tabular-nums text-text-primary">{formatNumber(value)}</span>
+      </dd>
     </div>
   );
 }
