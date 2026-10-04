@@ -1,497 +1,289 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import {
-  addVacationAction,
-  endVacationAction,
-  removeVacationAction,
-  updateBalanceAction,
-  updateDisplayNameAction,
-  updatePreferencesAction,
-  updateScheduleAction,
-} from "@/app/(realm)/settings/actions";
+import { useState, useTransition, type ReactNode } from "react";
+import { updateProfileAction, updateSettingsAction } from "@/app/(realm)/settings/actions";
+import { WorldVista } from "@/components/art/WorldVista";
+import { AvatarSprite } from "@/components/character/AvatarSprite";
 import { PixelIcon } from "@/components/icons/PixelIcon";
 import type { SpriteName } from "@/components/icons/sprites";
-import { GameButton, GameLinkButton } from "@/components/ui/GameButton";
+import { GameButton } from "@/components/ui/GameButton";
 import { GamePanel } from "@/components/ui/GamePanel";
 import { Notice } from "@/components/ui/Notice";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import type { QuestReward } from "@/game/config/balance";
-import { WEEKDAY_NAMES } from "@/game/planning";
-import { QUEST_DIFFICULTY_LABELS } from "@/game/vocabulary";
-import { isOnVacation, type BalanceOverrides, type CharacterSettings, type EffectiveBalance } from "@/game/settings";
-import { QUEST_DIFFICULTIES, type QuestDifficulty } from "@/game/vocabulary";
+import { AVATAR_HAIR_COLORS, AVATAR_HAIR_STYLES, AVATAR_SKIN_TONES, AVATAR_TUNIC_COLORS, type AvatarConfig } from "@/game/avatar";
+import { GP_QUICK_CHOICES } from "@/game/quests";
+import { BACKGROUNDS, type CharacterSettings } from "@/game/settings";
 import { cx } from "@/lib/cx";
-import { formatIsoDate, localToday } from "@/lib/dates";
-import { useAction } from "@/lib/use-action";
 
 const field =
   "w-full rounded-sm border border-stone-600 bg-stone-950 px-3 py-2 text-text-primary placeholder:text-text-disabled focus:border-gold-400 focus:outline-none focus-visible:outline-2 focus-visible:outline-focus-ring";
-const numberField = field.replace("w-full", "w-full max-w-36 tabular-nums");
 
-type Defaults = EffectiveBalance & { questRewards: Readonly<Record<QuestDifficulty, QuestReward>> };
+const BACKGROUND_LABELS: Record<(typeof BACKGROUNDS)[number], string> = { default: "Default", forest: "Forest", mountain: "Mountain" };
 
-function Section({ id, title, icon, children, eyebrow }: { id: string; title: string; icon: SpriteName; children: ReactNode; eyebrow?: string }) {
+function Section({ id, title, icon, children }: { id: string; title: string; icon: SpriteName; children: ReactNode }) {
   return (
     <GamePanel as="section" labelledBy={id} className="p-5">
-      <SectionHeader id={id} title={title} eyebrow={eyebrow} icon={<PixelIcon name={icon} size={24} />} divider />
-      <div className="mt-4">{children}</div>
+      <SectionHeader id={id} title={title} icon={<PixelIcon name={icon} size={24} />} divider />
+      <div className="mt-4 flex flex-col gap-4">{children}</div>
     </GamePanel>
   );
 }
 
-function Saved({ show }: { show: boolean }) {
-  return show ? (
-    <span role="status" className="text-sm text-moss-300">
-      ✓ Saved
-    </span>
-  ) : null;
+/** An on/off switch: a real button with role="switch", labeled, with text state (not color alone). */
+function Toggle({ label, hint, checked, disabled, onChange }: { label: string; hint?: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span>
+        <span className="block text-text-primary">{label}</span>
+        {hint && <span className="text-sm text-text-muted">{hint}</span>}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cx(
+          "relative inline-flex h-7 w-14 shrink-0 items-center rounded-full border-2 transition-colors disabled:opacity-60",
+          checked ? "border-moss-500 bg-moss-600" : "border-stone-500 bg-stone-800",
+        )}
+      >
+        <span aria-hidden className={cx("absolute size-5 rounded-full bg-parchment-50 shadow transition-transform", checked ? "translate-x-7" : "translate-x-0.5")} />
+        <span className="sr-only">{checked ? "On" : "Off"}</span>
+      </button>
+    </div>
+  );
 }
 
 export function SettingsBoard({
   displayName,
-  signedInEmail,
+  avatar,
   settings,
-  balance,
-  defaults,
-  presets,
-  today,
+  signedInEmail,
 }: {
   displayName: string;
-  signedInEmail: string | null;
+  avatar: AvatarConfig;
   settings: CharacterSettings;
-  balance: EffectiveBalance;
-  defaults: Defaults;
-  presets: number[];
-  today: string;
+  signedInEmail: string | null;
 }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [gp, setGp] = useState(String(settings.defaultQuestGp));
+
+  const save = (patch: Partial<CharacterSettings>) => {
+    setError(null);
+    startTransition(async () => {
+      const r = await updateSettingsAction(patch);
+      if (!r.ok) setError(r.error);
+      router.refresh();
+    });
+  };
+
   return (
     <div className="grid items-start gap-4 xl:grid-cols-2">
+      {error && <Notice tone="error" className="xl:col-span-2">{error}</Notice>}
       <div className="flex min-w-0 flex-col gap-4">
-        <ProfileSection displayName={displayName} signedInEmail={signedInEmail} />
-        <ScheduleSection settings={settings} today={today} />
-      </div>
-      <div className="flex min-w-0 flex-col gap-4">
-        <PreferencesSection settings={settings} presets={presets} dailyCap={balance.focusDailyXpCap} />
-        <Section id="settings-recovery" title="Recovery" icon="character">
-          <p className="text-text-secondary">
-            Fallen behind? A Respawn helps you clear dead commitments, reset realistic targets, and pick one Quest to restart with. Nothing permanent is ever lost.
-          </p>
-          <GameLinkButton href="/respawn" className="mt-3">
-            Begin a Respawn
-          </GameLinkButton>
+        <ProfileSection displayName={displayName} avatar={avatar} />
+        <Section id="settings-appearance" title="Appearance" icon="world">
+          <fieldset>
+            <legend className="text-sm text-text-secondary">Background</legend>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {BACKGROUNDS.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  aria-pressed={settings.background === b}
+                  disabled={pending}
+                  onClick={() => save({ background: b })}
+                  className={cx("flex flex-col gap-1.5 rounded-sm border-2 p-1 text-sm", settings.background === b ? "border-gold-400 text-gold-100" : "border-stone-700 text-text-secondary hover:border-stone-500")}
+                >
+                  <span data-background={b} className="block">
+                    <span className="q-vista block h-16 overflow-hidden rounded-xs">
+                      <WorldVista />
+                    </span>
+                  </span>
+                  <span>
+                    {settings.background === b && <span aria-hidden>✓ </span>}
+                    {BACKGROUND_LABELS[b]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <Toggle
+            label="Reduce motion"
+            hint="Always calm animations, even if your device allows them."
+            checked={settings.motion === "reduce"}
+            disabled={pending}
+            onChange={(v) => save({ motion: v ? "reduce" : "system" })}
+          />
+          <Toggle label="Sound" hint="A short chime when you complete a quest or redeem a reward." checked={settings.sound} disabled={pending} onChange={(v) => save({ sound: v })} />
         </Section>
-        <Section id="settings-records" title="Your Records" icon="collection">
-          <p className="text-text-secondary">
-            Download your whole adventure — Quests, objectives, progression ledger, achievements, Collection Log, rewards, and history — as a JSON file.
-          </p>
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-4">
+        <Section id="settings-feedback" title="Celebrations" icon="star">
+          <Toggle
+            label="Quest completion"
+            hint="Show the Quest Complete reveal. Off: a quick confirmation instead."
+            checked={settings.celebrateCompletions}
+            disabled={pending}
+            onChange={(v) => save({ celebrateCompletions: v })}
+          />
+          <Toggle
+            label="Reward redemptions"
+            hint="Show the Reward Redeemed reveal. Off: a quick confirmation instead."
+            checked={settings.celebrateRedemptions}
+            disabled={pending}
+            onChange={(v) => save({ celebrateRedemptions: v })}
+          />
+        </Section>
+
+        <Section id="settings-game" title="Game Settings" icon="gp">
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save({ defaultQuestGp: Number(gp) });
+            }}
+          >
+            <label htmlFor="default-gp" className="text-text-primary">
+              Default quest reward
+              <span className="block text-sm text-text-muted">Suggested GP when you add a quest.</span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-2">
+                <PixelIcon name="gp" size={22} />
+                <input id="default-gp" className={cx(field, "w-24 tabular-nums")} type="number" min={0} step={1} value={gp} onChange={(e) => setGp(e.target.value)} />
+              </span>
+              {GP_QUICK_CHOICES.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  aria-pressed={Number(gp) === n}
+                  onClick={() => setGp(String(n))}
+                  className={cx("min-h-9 min-w-11 rounded-sm border px-2 tabular-nums", Number(gp) === n ? "border-gold-500 text-gold-100" : "border-stone-700 text-text-secondary hover:border-stone-500")}
+                >
+                  {n}
+                </button>
+              ))}
+              <GameButton type="submit" size="sm" disabled={pending || Number(gp) === settings.defaultQuestGp}>
+                Save
+              </GameButton>
+            </div>
+          </form>
+          <Toggle
+            label="Confirm before completing"
+            hint="Ask “Complete this quest?” before awarding GP."
+            checked={settings.confirmCompletion}
+            disabled={pending}
+            onChange={(v) => save({ confirmCompletion: v })}
+          />
+          <Toggle label="Show savings goal" hint="On the Quest Log." checked={settings.showSavingsGoal} disabled={pending} onChange={(v) => save({ showSavingsGoal: v })} />
+          <Toggle label="Show recent completions" hint="On the Quest Log." checked={settings.showRecentCompletions} disabled={pending} onChange={(v) => save({ showRecentCompletions: v })} />
+        </Section>
+
+        <Section id="settings-data" title="Data" icon="diaries">
+          <p className="text-text-secondary">Download everything — quests, completed history, GP ledger, rewards, and redemptions — as a JSON file.</p>
           <a
             href="/export"
             download
-            className="q-title mt-3 inline-flex min-h-11 items-center gap-2 rounded-sm border border-blue-600 bg-stone-850 px-5 text-text-primary hover:border-blue-400 hover:bg-stone-800"
+            className="q-title inline-flex min-h-11 items-center gap-2 self-start rounded-sm border border-blue-600 bg-stone-850 px-5 text-text-primary hover:border-blue-400 hover:bg-stone-800"
           >
-            <PixelIcon name="diaries" size={18} /> Export My Adventure
+            <PixelIcon name="diaries" size={18} /> Export My Data
           </a>
+          {signedInEmail && (
+            <form action="/auth/signout" method="post" className="flex flex-wrap items-center gap-3 border-t border-stone-700 pt-4">
+              <span className="text-sm text-text-secondary">
+                Signed in as <span className="text-text-primary">{signedInEmail}</span>
+              </span>
+              <GameButton type="submit" size="sm" variant="ghost">
+                Sign Out
+              </GameButton>
+            </form>
+          )}
         </Section>
-        <BalanceSection balance={balance} defaults={defaults} />
       </div>
     </div>
   );
 }
 
-function ProfileSection({ displayName, signedInEmail }: { displayName: string; signedInEmail: string | null }) {
+function ProfileSection({ displayName, avatar }: { displayName: string; avatar: AvatarConfig }) {
   const router = useRouter();
-  const { pending, error, run } = useAction();
-  const [name, setName] = useState(displayName);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [name, setName] = useState(displayName);
+  const [look, setLook] = useState(avatar);
+  const [editingLook, setEditingLook] = useState(false);
+  const dirty = name.trim() !== displayName || JSON.stringify(look) !== JSON.stringify(avatar);
+
+  const cycle = <T extends string>(list: readonly T[], value: T) => list[(list.indexOf(value) + 1) % list.length];
+
   return (
     <Section id="settings-profile" title="Profile" icon="character">
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSaved(false);
-          run(() => updateDisplayNameAction(name), () => {
-            setSaved(true);
-            router.refresh();
-          });
-        }}
-      >
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          Character name
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
-        </label>
-        {error && <Notice tone="error">{error}</Notice>}
-        <div className="flex items-center gap-3">
-          <GameButton type="submit" disabled={pending || name.trim() === displayName}>
-            Save Name
-          </GameButton>
-          <Saved show={saved} />
-        </div>
-      </form>
-      <p className="mt-4 text-sm text-text-secondary">
-        Your appearance, Title, and Skill Cape are chosen in your{" "}
-        <Link href="/character" className="text-blue-300 underline-offset-4 hover:underline">
-          Character Profile
-        </Link>
-        .
-      </p>
-      {signedInEmail && (
-        <form action="/auth/signout" method="post" className="mt-4 flex flex-wrap items-center gap-3 border-t border-stone-700 pt-4">
-          <span className="text-sm text-text-secondary">
-            Signed in as <span className="text-text-primary">{signedInEmail}</span>
-          </span>
-          <GameButton type="submit" size="sm" variant="ghost">
-            Sign Out
-          </GameButton>
-        </form>
-      )}
-    </Section>
-  );
-}
-
-function ScheduleSection({ settings, today }: { settings: CharacterSettings; today: string }) {
-  const router = useRouter();
-  const { pending, error, run } = useAction();
-  const [workdays, setWorkdays] = useState(settings.workdays);
-  const [weekStart, setWeekStart] = useState(settings.weekStart);
-  const [planningDay, setPlanningDay] = useState(settings.planningDay);
-  const [saved, setSaved] = useState(false);
-  const [vStart, setVStart] = useState(today);
-  const [vEnd, setVEnd] = useState("");
-  const pausedNow = isOnVacation(settings, today);
-  const order = [...Array(7).keys()].map((i) => (weekStart + i) % 7);
-  const done = () => {
-    setSaved(true);
-    router.refresh();
-  };
-
-  return (
-    <Section id="settings-schedule" title="Schedule" icon="diaries" eyebrow="Streaks and Diaries follow this">
       <form
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
+          setError(null);
           setSaved(false);
-          run(() => updateScheduleAction({ workdays, weekStart, planningDay }), done);
+          startTransition(async () => {
+            const r = await updateProfileAction({ displayName: name, avatar: look });
+            if (!r.ok) return setError(r.error);
+            setSaved(true);
+            setEditingLook(false);
+            router.refresh();
+          });
         }}
       >
-        <fieldset>
-          <legend className="text-sm text-text-secondary">Adventuring days — only these can break a streak</legend>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {order.map((d) => {
-              const on = workdays.includes(d);
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setWorkdays(on ? workdays.filter((w) => w !== d) : [...workdays, d])}
-                  className={cx(
-                    "min-h-10 min-w-14 rounded-sm border px-2 text-sm",
-                    on ? "border-gold-500 bg-gold-700/25 text-gold-100" : "border-stone-700 text-text-muted hover:border-stone-500",
-                  )}
-                >
-                  {on && <span aria-hidden>✓ </span>}
-                  {WEEKDAY_NAMES[d].slice(0, 3)}
-                </button>
-              );
-            })}
+        <div className="flex items-center gap-4">
+          <span className="q-well flex h-24 w-20 shrink-0 items-end justify-center overflow-hidden border border-border-dark">
+            <AvatarSprite avatar={look} name={name || displayName} height={88} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <label className="flex flex-col gap-1 text-sm text-text-secondary">
+              Display name
+              <input className={field} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
+            </label>
+            <button type="button" className="mt-2 text-sm text-blue-300 underline-offset-4 hover:underline" aria-expanded={editingLook} onClick={() => setEditingLook((v) => !v)}>
+              {editingLook ? "Done changing avatar" : "Change avatar"}
+            </button>
           </div>
-        </fieldset>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm text-text-secondary">
-            Week starts on
-            <select className={field} value={weekStart} onChange={(e) => setWeekStart(Number(e.target.value))}>
-              {WEEKDAY_NAMES.map((n, i) => (
-                <option key={n} value={i}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-text-secondary">
-            Weekly planning day
-            <select className={field} value={planningDay} onChange={(e) => setPlanningDay(Number(e.target.value))}>
-              {WEEKDAY_NAMES.map((n, i) => (
-                <option key={n} value={i}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
-        {error && <Notice tone="error">{error}</Notice>}
-        <div className="flex items-center gap-3">
-          <GameButton type="submit" disabled={pending}>
-            Save Schedule
-          </GameButton>
-          <Saved show={saved} />
-        </div>
-      </form>
-
-      <div className="mt-6 border-t border-stone-700 pt-4">
-        <h3 className="q-title text-lg text-gold-300">Vacation &amp; Pause</h3>
-        <p className="mt-1 text-sm text-text-secondary">Paused days never break your Adventure or Focus streaks.</p>
-        {pausedNow && <Notice className="mt-2">You are currently paused. Enjoy the rest.</Notice>}
-        {settings.vacations.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-2">
-            {settings.vacations.map((v, i) => (
-              <li key={`${v.start}-${i}`} className="flex flex-wrap items-center gap-2 rounded-sm border border-stone-700 px-3 py-2">
-                <span className="flex-1 text-text-primary">
-                  {formatIsoDate(v.start)} → {v.end ? formatIsoDate(v.end) : "until you return"}
-                </span>
-                {!v.end && v.start <= today && (
-                  <GameButton size="sm" disabled={pending} onClick={() => run(() => endVacationAction(i, localToday()), () => router.refresh())}>
-                    I&apos;m back
-                  </GameButton>
-                )}
-                <GameButton size="sm" variant="ghost" disabled={pending} onClick={() => run(() => removeVacationAction(i), () => router.refresh())}>
-                  Remove
-                </GameButton>
-              </li>
-            ))}
-          </ul>
-        )}
-        <form
-          className="mt-3 flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            run(() => addVacationAction({ start: vStart, end: vEnd || null }), () => {
-              setVEnd("");
-              router.refresh();
-            });
-          }}
-        >
-          <label className="flex flex-col gap-1 text-sm text-text-secondary">
-            From
-            <input type="date" className={field} value={vStart} onChange={(e) => setVStart(e.target.value)} required />
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-text-secondary">
-            Until (optional)
-            <input type="date" className={field} value={vEnd} min={vStart} onChange={(e) => setVEnd(e.target.value)} />
-          </label>
-          <GameButton type="submit" disabled={pending}>
-            Add Pause
-          </GameButton>
-        </form>
-      </div>
-    </Section>
-  );
-}
-
-function PreferencesSection({ settings, presets, dailyCap }: { settings: CharacterSettings; presets: number[]; dailyCap: number }) {
-  const router = useRouter();
-  const { pending, error, run } = useAction();
-  const save = (input: Parameters<typeof updatePreferencesAction>[0]) => run(() => updatePreferencesAction(input), () => router.refresh());
-  return (
-    <>
-      <Section id="settings-focus" title="Focus" icon="skill-focus">
-        <fieldset>
-          <legend className="text-sm text-text-secondary">Default Focus timer</legend>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {presets.map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={settings.focusDefaultMinutes === m}
-                disabled={pending}
-                onClick={() => save({ focusDefaultMinutes: m })}
-                className={cx(
-                  "min-h-10 rounded-sm border px-4",
-                  settings.focusDefaultMinutes === m ? "border-gold-500 bg-gold-700/25 text-gold-100" : "border-stone-700 text-text-secondary hover:border-stone-500",
-                )}
-              >
-                {settings.focusDefaultMinutes === m && <span aria-hidden>✓ </span>}
-                {m} min
+        {editingLook && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {(
+              [
+                ["Skin", () => setLook({ ...look, skinTone: cycle(AVATAR_SKIN_TONES, look.skinTone) }), look.skinTone],
+                ["Hair", () => setLook({ ...look, hairStyle: cycle(AVATAR_HAIR_STYLES, look.hairStyle) }), look.hairStyle],
+                ["Hair color", () => setLook({ ...look, hairColor: cycle(AVATAR_HAIR_COLORS, look.hairColor) }), look.hairColor],
+                ["Tunic", () => setLook({ ...look, tunicColor: cycle(AVATAR_TUNIC_COLORS, look.tunicColor) }), look.tunicColor],
+                ["Beard", () => setLook({ ...look, beard: !look.beard }), look.beard ? "yes" : "no"],
+              ] as const
+            ).map(([label, onClick, value]) => (
+              <button key={label} type="button" onClick={onClick} className="flex min-h-11 flex-col items-start rounded-sm border border-stone-700 px-3 py-1 text-left hover:border-stone-500">
+                <span className="text-xs text-text-muted">{label}</span>
+                <span className="capitalize text-text-primary">{value} ›</span>
               </button>
             ))}
           </div>
-        </fieldset>
-        <p className="mt-3 text-sm text-text-secondary">
-          Focus XP is capped at {dailyCap} XP in any 24 hours, with smaller rewards after three sessions — rest is part of the game. Adjust it under Game Balance.
-        </p>
-      </Section>
-      <Section id="settings-appearance" title="Appearance" icon="settings">
-        <fieldset>
-          <legend className="text-sm text-text-secondary">Motion</legend>
-          <div className="mt-2 flex flex-col gap-2">
-            {(
-              [
-                ["system", "Follow my device setting"],
-                ["reduce", "Always reduce motion"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-text-primary">
-                <input
-                  type="radio"
-                  name="motion"
-                  className="size-4 accent-[var(--color-gold-400)]"
-                  checked={(settings.motion === "full" ? "system" : settings.motion) === value}
-                  disabled={pending}
-                  onChange={() => save({ motion: value })}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        {error && <Notice tone="error" className="mt-3">{error}</Notice>}
-      </Section>
-    </>
-  );
-}
-
-function BalanceSection({ balance, defaults }: { balance: EffectiveBalance; defaults: Defaults }) {
-  const router = useRouter();
-  const { pending, error, run } = useAction();
-  const [rewards, setRewards] = useState(() => structuredClone(balance.questRewards));
-  const [mainCap, setMainCap] = useState(balance.mainQuestCap);
-  const [focusCap, setFocusCap] = useState(balance.focusDailyXpCap);
-  const [bounty, setBounty] = useState({ ...balance.bounty });
-  const [respawn, setRespawn] = useState({ ...balance.respawn });
-  const [saved, setSaved] = useState(false);
-
-  /** Only values that differ from the canonical defaults are stored. */
-  function overrides(): BalanceOverrides {
-    const o: BalanceOverrides = {};
-    const qr = Object.fromEntries(QUEST_DIFFICULTIES.filter((d) => JSON.stringify(rewards[d]) !== JSON.stringify(defaults.questRewards[d])).map((d) => [d, rewards[d]]));
-    if (Object.keys(qr).length) o.questRewards = qr;
-    if (mainCap !== defaults.mainQuestCap) o.mainQuestCap = mainCap;
-    if (focusCap !== defaults.focusDailyXpCap) o.focusDailyXpCap = focusCap;
-    const b = Object.fromEntries(Object.entries(bounty).filter(([k, v]) => defaults.bounty[k as keyof typeof bounty] !== v));
-    if (Object.keys(b).length) o.bounty = b;
-    const r = Object.fromEntries(Object.entries(respawn).filter(([k, v]) => defaults.respawn[k as keyof typeof respawn] !== v));
-    if (Object.keys(r).length) o.respawn = r;
-    return o;
-  }
-
-  const num = (v: string) => (v === "" ? NaN : Number(v));
-
-  return (
-    <GamePanel as="section" labelledBy="settings-balance" className="p-5">
-      <details>
-        <summary className="flex cursor-pointer list-none items-center gap-2.5 [&::-webkit-details-marker]:hidden">
-          <PixelIcon name="total-level" size={22} />
-          <h2 id="settings-balance" className="q-title text-lg text-text-secondary">
-            Game Balance — Advanced
-          </h2>
-          <span aria-hidden className="ml-auto text-text-muted">▾</span>
-        </summary>
-        <Notice className="mt-4">
-          Changing game balance can make progression less meaningful. Existing accepted quest rewards will not be retroactively changed.
-        </Notice>
-        <form
-          className="mt-4 flex flex-col gap-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSaved(false);
-            run(() => updateBalanceAction(overrides()), () => {
-              setSaved(true);
-              router.refresh();
-            });
-          }}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[22rem] text-sm">
-              <caption className="mb-2 text-left text-text-secondary">Quest rewards by difficulty</caption>
-              <thead>
-                <tr className="text-left text-text-muted">
-                  <th scope="col" className="py-1 font-normal">Difficulty</th>
-                  <th scope="col" className="py-1 font-normal">XP</th>
-                  <th scope="col" className="py-1 font-normal">GP</th>
-                  <th scope="col" className="py-1 font-normal">QP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {QUEST_DIFFICULTIES.map((d) => (
-                  <tr key={d}>
-                    <th scope="row" className="py-1 pr-2 text-left font-normal text-text-primary">
-                      {QUEST_DIFFICULTY_LABELS[d]}
-                    </th>
-                    {(["xp", "gp", "qp"] as const).map((k) => (
-                      <td key={k} className="py-1 pr-2">
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          aria-label={`${QUEST_DIFFICULTY_LABELS[d]} ${k.toUpperCase()}`}
-                          className={numberField}
-                          value={Number.isNaN(rewards[d][k]) ? "" : rewards[d][k]}
-                          onChange={(e) => setRewards({ ...rewards, [d]: { ...rewards[d], [k]: num(e.target.value) } })}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm text-text-secondary">
-              Main Quest cap
-              <input type="number" min={1} max={10} className={numberField} value={Number.isNaN(mainCap) ? "" : mainCap} onChange={(e) => setMainCap(num(e.target.value))} />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-text-secondary">
-              Daily Focus XP cap
-              <input type="number" min={0} className={numberField} value={Number.isNaN(focusCap) ? "" : focusCap} onChange={(e) => setFocusCap(num(e.target.value))} />
-            </label>
-          </div>
-          <fieldset className="grid gap-3 sm:grid-cols-2">
-            <legend className="mb-2 text-sm text-text-secondary">Boss bounty (bonus GP)</legend>
-            {(
-              [
-                ["earlyGp", "Before the target date"],
-                ["byTargetGp", "On the target date"],
-                ["byDeadlineGp", "By the hard deadline"],
-                ["lateGp", "After the deadline"],
-              ] as const
-            ).map(([k, label]) => (
-              <label key={k} className="flex flex-col gap-1 text-sm text-text-secondary">
-                {label}
-                <input type="number" min={0} className={numberField} value={Number.isNaN(bounty[k]) ? "" : bounty[k]} onChange={(e) => setBounty({ ...bounty, [k]: num(e.target.value) })} />
-              </label>
-            ))}
-          </fieldset>
-          <fieldset className="grid gap-3 sm:grid-cols-2">
-            <legend className="mb-2 text-sm text-text-secondary">Respawn suggestion thresholds</legend>
-            <label className="flex flex-col gap-1 text-sm text-text-secondary">
-              Missed adventuring days
-              <input type="number" min={1} className={numberField} value={Number.isNaN(respawn.missedPlannedWorkdays) ? "" : respawn.missedPlannedWorkdays} onChange={(e) => setRespawn({ ...respawn, missedPlannedWorkdays: num(e.target.value) })} />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-text-secondary">
-              Quests needing attention
-              <input type="number" min={1} className={numberField} value={Number.isNaN(respawn.questsNeedingAttention) ? "" : respawn.questsNeedingAttention} onChange={(e) => setRespawn({ ...respawn, questsNeedingAttention: num(e.target.value) })} />
-            </label>
-          </fieldset>
-          {error && <Notice tone="error">{error}</Notice>}
-          <div className="flex flex-wrap items-center gap-3">
-            <GameButton type="submit" disabled={pending}>
-              Save Game Balance
-            </GameButton>
-            <GameButton
-              variant="ghost"
-              disabled={pending}
-              onClick={() =>
-                run(() => updateBalanceAction({}), () => {
-                  setRewards(structuredClone({ ...defaults.questRewards }) as Record<QuestDifficulty, QuestReward>);
-                  setMainCap(defaults.mainQuestCap);
-                  setFocusCap(defaults.focusDailyXpCap);
-                  setBounty({ ...defaults.bounty });
-                  setRespawn({ ...defaults.respawn });
-                  setSaved(true);
-                  router.refresh();
-                })
-              }
-            >
-              Restore defaults
-            </GameButton>
-            <Saved show={saved} />
-          </div>
-        </form>
-      </details>
-    </GamePanel>
+        )}
+        {error && <Notice tone="error">{error}</Notice>}
+        <div className="flex items-center gap-3">
+          <GameButton type="submit" disabled={pending || !dirty}>
+            Save Profile
+          </GameButton>
+          {saved && !dirty && (
+            <span role="status" className="text-sm text-moss-300">
+              ✓ Saved
+            </span>
+          )}
+        </div>
+      </form>
+    </Section>
   );
 }

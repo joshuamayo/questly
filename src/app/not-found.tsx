@@ -9,7 +9,7 @@ export default function NotFound() {
         <h1 className="q-display mt-3 text-2xl">Uncharted Territory</h1>
         <p className="mt-2 text-parchment-ink-soft">There is nothing at this location. The page you followed does not exist.</p>
         <GameLinkButton href="/" variant="primary" className="mt-6">
-          Return to World
+          Back to Quest Log
         </GameLinkButton>
       </div>
     </div>

@@ -114,20 +114,3 @@ export function AvatarSprite({
     </span>
   );
 }
-
-/** Avatar on a carved stone plinth, used on World and Character screens. */
-export function AvatarPlinth({ avatar, name, height = 132 }: { avatar: AvatarConfig; name: string; height?: number }) {
-  return (
-    <div className="relative flex flex-col items-center">
-      <div
-        aria-hidden
-        className="absolute bottom-3 h-6 w-[70%] rounded-full bg-[radial-gradient(closest-side,rgb(235_196_106/0.35),transparent)]"
-      />
-      <AvatarSprite avatar={avatar} name={name} height={height} className="relative z-10" />
-      <div
-        aria-hidden
-        className="q-stone -mt-2 h-4 w-[78%] border-2 border-border-dark shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_4px_0_rgb(0_0_0/0.5)]"
-      />
-    </div>
-  );
-}

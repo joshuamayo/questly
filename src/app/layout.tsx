@@ -9,7 +9,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "Questly", template: "%s · Questly" },
-  description: "Real Progress. Epic Rewards. A real-life RPG for the work that matters.",
+  description: "One quest at a time. Real progress. Real rewards.",
 };
 
 export const viewport: Viewport = {

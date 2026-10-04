@@ -86,14 +86,6 @@
   --color-crimson-500: #c43a2d;
   --color-crimson-700: #6a1d16;
 
-  /* --- Skill identity colors (always paired with icon + name) ------------ */
-  --color-skill-creator: #a066ea;
-  --color-skill-business: #3f8ae6;
-  --color-skill-finance: #e2b33c;
-  --color-skill-fitness: #e2504a;
-  --color-skill-home: #e88b3a;
-  --color-skill-focus: #3cc46c;
-
   /* --- Skin / hair / cloth palette (avatar art only) --------------------- */
   --color-skin-porcelain: #f3d6c0;
   --color-skin-sand: #deb08a;
@@ -123,28 +115,6 @@
   --color-border-bronze: var(--color-bronze);
   --color-border-gold: var(--color-gold-500);
   --color-focus-ring: var(--color-gold-200);
-
-  /* --- Quest difficulty (always paired with a label/icon) ---------------- */
-  --color-difficulty-novice: var(--color-moss-400);
-  --color-difficulty-intermediate: var(--color-blue-400);
-  --color-difficulty-experienced: #a066ea;
-  --color-difficulty-master: #e88b3a;
-  --color-difficulty-grandmaster: #e4504a;
-
-  /* --- Combat Achievement / Diary tiers (always with label + icon) ------- */
-  --color-tier-easy: var(--color-moss-400);
-  --color-tier-medium: var(--color-blue-400);
-  --color-tier-hard: var(--color-crimson-400);
-  --color-tier-elite: #a066ea;
-  --color-tier-master: var(--color-gold-300);
-  --color-tier-grandmaster: #ef6b3c;
-
-  /* --- Rarity (Collection Log, rewards) ---------------------------------- */
-  --color-rarity-common: #bdb5a4;
-  --color-rarity-uncommon: var(--color-moss-400);
-  --color-rarity-rare: var(--color-blue-400);
-  --color-rarity-epic: #b48be0;
-  --color-rarity-legendary: var(--color-gold-300);
 
   /* --- Typography -------------------------------------------------------- */
   --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
@@ -203,6 +173,21 @@
 @keyframes q-shimmer {
   from { background-position: -200% 0; }
   to { background-position: 200% 0; }
+}
+
+@keyframes q-coin-pop {
+  0% {
+    transform: translateY(14px) scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-4px) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
 }
 
 @keyframes q-rise {
@@ -430,7 +415,34 @@ select {
     border-radius: var(--radius-sm);
   }
 
+  .q-coin-pop {
+    animation: q-coin-pop var(--duration-slow) var(--ease-game) 120ms both;
+  }
   .q-enter {
     animation: q-rise var(--duration-slow) var(--ease-game) both;
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* Scenic background variants (Settings → Appearance). The code-drawn vista  */
+/* reads these tokens, so each variant is a palette, not new artwork.        */
+/* ------------------------------------------------------------------------ */
+[data-background="forest"] .q-vista {
+  --color-teal-700: #2f6b45;
+  --color-stone-800: #1c3a27;
+  --color-stone-700: #24482f;
+  --color-timber-600: #6f8a3a;
+  --color-gold-500: #e0b04f;
+  --color-moss-700: #0d3a1f;
+  --color-moss-600: #12562c;
+  --color-stone-950: #08180e;
+}
+[data-background="mountain"] .q-vista {
+  --color-teal-700: #2b3f66;
+  --color-stone-800: #1e2640;
+  --color-timber-600: #6a5a86;
+  --color-gold-500: #e09a6b;
+  --color-stone-700: #46557a;
+  --color-moss-700: #2c4a4f;
+}
+

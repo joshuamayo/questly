@@ -1,17 +1,16 @@
 /**
  * Reward Shop. Rewards are the player's own real-life rewards, bought with
  * earned GP only. Redemption is atomic: validate → deduct GP (guarded, never
- * negative) → record the redemption → ledger transaction → success state.
- * A client request id makes a double-submitted redemption a no-op.
+ * negative) → ledger transaction → redemption record → retire one-time
+ * rewards. A client request id makes a double-submitted redemption a no-op.
  */
 
 import { and, desc, eq, sql } from "drizzle-orm";
-import { REWARD_TEMPLATES } from "@/game/content/reward-templates";
 import { GameRuleError } from "@/game/errors";
-import { validateReward, type RewardInput } from "@/game/rewards";
+import { REWARD_SUGGESTIONS, validateReward, type RewardInput } from "@/game/rewards";
 import type { Db } from "../db/client";
-import { activityEvents, characters, progressionTransactions, rewardRedemptions, rewards, type RewardRow } from "../db/schema";
-import { spendGp } from "../progression/service";
+import { characters, gpTransactions, rewardRedemptions, rewards, type RewardRow } from "../db/schema";
+import { spendGp } from "../gp/service";
 
 export class RewardNotFoundError extends GameRuleError {
   constructor() {
@@ -29,18 +28,21 @@ async function ownReward(db: Db, characterId: string, rewardId: string, lock = f
 export async function createReward(db: Db, characterId: string, input: RewardInput) {
   const clean = validateReward(input);
   const [count] = await db.select({ n: sql<number>`count(*)::int` }).from(rewards).where(eq(rewards.characterId, characterId));
-  if (count.n >= 200) throw new GameRuleError("Your Reward Shop is full. Archive or remove a reward first.", "REWARD_LIMIT");
+  if (count.n >= 200) throw new GameRuleError("Your Reward Shop is full. Archive a reward first.", "REWARD_LIMIT");
   const [row] = await db.insert(rewards).values({ characterId, ...clean }).returning();
   return row;
 }
 
-export async function addRewardFromTemplate(db: Db, characterId: string, templateKey: string) {
-  const t = REWARD_TEMPLATES.find((r) => r.key === templateKey);
-  if (!t) throw new GameRuleError("That reward idea is no longer available.", "REWARD_TEMPLATE_NOT_FOUND");
-  return createReward(db, characterId, { name: t.name, description: t.description, category: t.category, icon: t.icon, gpCost: t.gpCost, repeatable: t.repeatable });
+/** Fill an empty shop with the starter ideas (spec §17). */
+export async function addSuggestedRewards(db: Db, characterId: string) {
+  return db.transaction(async (tx) => {
+    const [count] = await tx.select({ n: sql<number>`count(*)::int` }).from(rewards).where(eq(rewards.characterId, characterId));
+    if (count.n > 0) throw new GameRuleError("Starter rewards can only be added to an empty Reward Shop.", "SHOP_NOT_EMPTY");
+    await tx.insert(rewards).values(REWARD_SUGGESTIONS.map((r) => ({ characterId, ...r, description: "" })));
+  });
 }
 
-/** Editing a reward never changes past redemptions (they snapshot name and cost). */
+/** Editing never changes past redemptions (they snapshot name and cost). */
 export async function updateReward(db: Db, characterId: string, rewardId: string, input: RewardInput) {
   const clean = validateReward(input);
   await ownReward(db, characterId, rewardId);
@@ -48,36 +50,33 @@ export async function updateReward(db: Db, characterId: string, rewardId: string
   return row;
 }
 
+/** Archive (hide) or restore a reward. Archiving also clears it as the savings goal. */
 export async function setRewardActive(db: Db, characterId: string, rewardId: string, active: boolean) {
-  await ownReward(db, characterId, rewardId);
-  await db.update(rewards).set({ active }).where(eq(rewards.id, rewardId));
+  const reward = await ownReward(db, characterId, rewardId);
+  if (active && !reward.repeatable) {
+    const [used] = await db.select({ id: rewardRedemptions.id }).from(rewardRedemptions).where(eq(rewardRedemptions.rewardId, rewardId)).limit(1);
+    if (used) throw new GameRuleError("This one-time reward has already been claimed.", "REWARD_ALREADY_CLAIMED");
+  }
+  await db.update(rewards).set(active ? { active } : { active, featuredGoal: false }).where(eq(rewards.id, rewardId));
 }
 
-/** Remove a reward that was never redeemed. Redeemed rewards are archived instead, keeping history. */
-export async function removeReward(db: Db, characterId: string, rewardId: string) {
+/** Make one reward the "Saving for" goal (or clear it with null). */
+export async function setFeaturedGoal(db: Db, characterId: string, rewardId: string | null) {
   return db.transaction(async (tx) => {
-    await ownReward(tx, characterId, rewardId, true);
-    const [used] = await tx.select({ id: rewardRedemptions.id }).from(rewardRedemptions).where(eq(rewardRedemptions.rewardId, rewardId)).limit(1);
-    if (used) {
-      await tx.update(rewards).set({ active: false }).where(eq(rewards.id, rewardId));
-      return { archived: true };
+    if (rewardId) {
+      const reward = await ownReward(tx, characterId, rewardId);
+      if (!reward.active) throw new GameRuleError("Archived rewards can't be a savings goal.", "REWARD_ARCHIVED");
     }
-    await tx.delete(rewards).where(eq(rewards.id, rewardId));
-    return { archived: false };
+    await tx.update(rewards).set({ featuredGoal: false }).where(and(eq(rewards.characterId, characterId), eq(rewards.featuredGoal, true)));
+    if (rewardId) await tx.update(rewards).set({ featuredGoal: true }).where(eq(rewards.id, rewardId));
   });
 }
 
-export type Redemption = {
-  duplicate: boolean;
-  redemptionId: string;
-  rewardName: string;
-  gpCost: number;
-  gpBalance: number;
-};
+export type Redemption = { duplicate: boolean; redemptionId: string; rewardName: string; gpCost: number; gpBalance: number };
 
 /**
- * Redeem a reward. `requestId` (generated by the client per confirmation)
- * makes retries and double clicks safe: the same request never spends twice.
+ * Redeem a reward. `requestId` (generated per confirmation) makes retries
+ * and double clicks safe: the same request never spends twice.
  */
 export async function redeemReward(db: Db, characterId: string, rewardId: string, requestId: string): Promise<Redemption> {
   if (!/^[A-Za-z0-9-]{8,64}$/.test(requestId)) throw new GameRuleError("The redemption request was malformed. Try again.", "BAD_REQUEST_ID");
@@ -85,12 +84,12 @@ export async function redeemReward(db: Db, characterId: string, rewardId: string
     const key = `redeem:${requestId}`;
     const [prior] = await tx
       .select()
-      .from(progressionTransactions)
-      .where(and(eq(progressionTransactions.characterId, characterId), eq(progressionTransactions.idempotencyKey, key)));
+      .from(gpTransactions)
+      .where(and(eq(gpTransactions.characterId, characterId), eq(gpTransactions.idempotencyKey, key)));
     if (prior) {
       const [c] = await tx.select({ gp: characters.gpBalance }).from(characters).where(eq(characters.id, characterId));
-      const meta = prior.metadata as { redemptionId: string; rewardName: string };
-      return { duplicate: true, redemptionId: meta.redemptionId, rewardName: meta.rewardName, gpCost: -prior.amount, gpBalance: c.gp };
+      const [r] = await tx.select().from(rewardRedemptions).where(eq(rewardRedemptions.id, prior.sourceId!));
+      return { duplicate: true, redemptionId: prior.sourceId!, rewardName: r?.rewardNameSnapshot ?? prior.description, gpCost: -prior.amount, gpBalance: c.gp };
     }
 
     // 1. Validate.
@@ -100,54 +99,38 @@ export async function redeemReward(db: Db, characterId: string, rewardId: string
       const [used] = await tx.select({ id: rewardRedemptions.id }).from(rewardRedemptions).where(eq(rewardRedemptions.rewardId, rewardId)).limit(1);
       if (used) throw new GameRuleError("This one-time reward has already been claimed.", "REWARD_ALREADY_CLAIMED");
     }
-    // 2–3. Record the redemption, then deduct GP (guarded update; throws if short).
+    // 2–5. Redemption record + guarded GP deduction with its ledger entry (rolls back together).
     const [redemption] = await tx
       .insert(rewardRedemptions)
       .values({ rewardId, characterId, gpCostSnapshot: reward.gpCost, rewardNameSnapshot: reward.name })
       .returning();
-    // 4. Ledger transaction (the spend itself).
-    await spendGp(tx, characterId, reward.gpCost, {
-      sourceType: "REWARD_REDEMPTION",
+    const { gpBalance } = await spendGp(tx, characterId, reward.gpCost, {
+      sourceType: "REWARD",
       sourceId: redemption.id,
+      description: reward.name,
       idempotencyKey: key,
-      metadata: { redemptionId: redemption.id, rewardId, rewardName: reward.name },
     });
-    if (!reward.repeatable) await tx.update(rewards).set({ active: false }).where(eq(rewards.id, rewardId));
-    await tx.insert(activityEvents).values({
-      characterId,
-      type: "REWARD_REDEEMED",
-      entityId: redemption.id,
-      payload: { name: reward.name, gpCost: reward.gpCost },
-    });
-    const [c] = await tx.select({ gp: characters.gpBalance }).from(characters).where(eq(characters.id, characterId));
-    // 5. Success state.
-    return { duplicate: false, redemptionId: redemption.id, rewardName: reward.name, gpCost: reward.gpCost, gpBalance: c.gp };
+    // 6. One-time rewards retire after use.
+    if (!reward.repeatable) await tx.update(rewards).set({ active: false, featuredGoal: false }).where(eq(rewards.id, rewardId));
+    return { duplicate: false, redemptionId: redemption.id, rewardName: reward.name, gpCost: reward.gpCost, gpBalance };
   });
 }
 
 export async function getRewardShop(db: Db, characterId: string) {
-  const [list, history, [c]] = await Promise.all([
+  const [list, history, counts, [c]] = await Promise.all([
     db.select().from(rewards).where(eq(rewards.characterId, characterId)).orderBy(rewards.gpCost, rewards.createdAt),
     db.select().from(rewardRedemptions).where(eq(rewardRedemptions.characterId, characterId)).orderBy(desc(rewardRedemptions.redeemedAt)).limit(100),
     db
-      .select({ gpBalance: characters.gpBalance, lifetimeGpEarned: characters.lifetimeGpEarned, lifetimeGpSpent: characters.lifetimeGpSpent })
-      .from(characters)
-      .where(eq(characters.id, characterId)),
-  ]);
-  const timesRedeemed = new Map<string, number>();
-  const [counts] = [
-    await db
       .select({ rewardId: rewardRedemptions.rewardId, n: sql<number>`count(*)::int` })
       .from(rewardRedemptions)
       .where(eq(rewardRedemptions.characterId, characterId))
       .groupBy(rewardRedemptions.rewardId),
-  ];
-  for (const r of counts) timesRedeemed.set(r.rewardId, r.n);
-  const owned = new Set(list.map((r) => r.name.toLowerCase()));
+    db.select({ gpBalance: characters.gpBalance }).from(characters).where(eq(characters.id, characterId)),
+  ]);
+  const times = new Map(counts.map((r) => [r.rewardId, r.n]));
   return {
-    balance: c,
-    rewards: list.map((r) => ({ ...r, timesRedeemed: timesRedeemed.get(r.id) ?? 0 })),
+    gpBalance: c.gpBalance,
+    rewards: list.map((r) => ({ ...r, timesRedeemed: times.get(r.id) ?? 0 })),
     history,
-    templates: REWARD_TEMPLATES.filter((t) => !owned.has(t.name.toLowerCase())),
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SKILL_DEFINITIONS } from "@/game/content/skills";
+import { REWARD_ICONS } from "@/game/rewards";
 import { SPRITE_PALETTE, SPRITES } from "./sprites";
 
 describe("pixel sprites", () => {
@@ -11,7 +11,7 @@ describe("pixel sprites", () => {
     }
   });
 
-  it("has an icon for every canonical Skill", () => {
-    for (const skill of SKILL_DEFINITIONS) expect(SPRITES).toHaveProperty(skill.icon);
+  it("has a sprite for every Reward icon", () => {
+    for (const icon of REWARD_ICONS) expect(SPRITES).toHaveProperty(icon);
   });
 });

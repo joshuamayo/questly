@@ -27,9 +27,6 @@ export function NavItem({ item, onNavigate }: { item: NavDestination; onNavigate
         <PixelIcon name={item.icon} size={28} />
       </span>
       <span className="flex-1 text-[1.02rem] leading-tight">{item.label}</span>
-      {!item.available && (
-        <PixelIcon name="lock" size={12} label="Not yet built" className="opacity-60" />
-      )}
     </Link>
   );
 }

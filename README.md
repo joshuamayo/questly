@@ -1,33 +1,19 @@
 # Questly
 
-**Real Progress. Epic Rewards.** A real-life RPG whose mechanics organize and motivate real-world work.
+**Turn real progress into epic rewards.** One ordered Quest Log, GP for every quest you finish, and a Reward Shop
+for the real-life rewards you've earned.
 
 - `CLAUDE.md` — implementation constitution (rules, vocabulary, invariants)
 - `QUESTLY_PRODUCT_SPEC.md` — product behavior and game rules
 
 ## Status
 
-- **Phase 1 — Foundation:** shell, design system, six Skills, XP engine, progression ledger.
-- **Phase 2 — Core Quest Loop:** Quest Journal, Quest Board (templates), Create & Accept Quest, Active Quest
-  (Quest Journal, Current Step, objectives, notes, status), idempotent completion with snapshotted rewards,
-  Quest Complete + Level Up celebration, World Current Adventure.
-- **Phase 3 — Focus + Questlines:** Focus Mode (server-timed sessions, capped Focus XP with diminishing returns),
-  Questlines (builder, adventure-path map, dependency unlocking, completion bonus), requirements engine and locked
-  Quests, Bosses (one Current Boss, HP from objectives, snapshotted bounty, Boss Defeated celebration).
-- **Phase 4 — Meta Progression:** one metrics engine with explicit tracking rules; 36 auto-tracked Combat
-  Achievements (Combat Points once each); 47-slot Collection Log with secret slots, manual milestone claims, and
-  memories; Weekly/Monthly Achievement Diaries (auto + personal entries, in-order one-time tier claims); Titles
-  and Skill Capes; Character Profile records.
-- **Phase 5 — Rewards + Recovery:** Reward Shop (your own rewards, atomic and idempotent GP redemption that can
-  never go negative, archive-not-delete, permanent history); Settings (schedule, vacation/pause, Focus default,
-  reduced motion, and an advanced Game Balance editor that only affects newly accepted Quests); Adventure, Focus,
-  and Deadline streaks with Streak Shields from Diary tiers; Quests Need Attention (Continue / Rescope / Abandon,
-  original dates kept in date history); six-step Weekly Planning with daily Quest recommendations; and a guided
-  Respawn ("You Died — nothing permanent was lost") with a one-time comeback bonus and resilience stats.
-- **Phase 6 — Polish:** full-account JSON export (Settings → Export My Adventure, or `GET /export`); zero axe
-  WCAG 2.1 AA violations across every screen at desktop and phone widths; a player "always reduce motion"
-  setting on top of the OS preference; viewer-local dates via the browser timezone; Focus Mode loading state.
-  Audio is intentionally not included in V1 (optional per the constitution).
+**V2 — simplified.** One ordered Quest Log: the first active quest is your **Current Quest**; everything after
+it is locked until it's next (reorder by drag, keyboard, or menu). Completing the Current Quest earns its GP
+exactly once. GP is the only currency, spent in the **Reward Shop** on your own real-life rewards (atomic,
+idempotent redemption that can never go negative; optional savings goal). **Completed** keeps a searchable,
+month-filterable history, and **Settings** covers profile, appearance, celebrations, defaults, export, and
+sign out.
 
 ## Going live
 
@@ -51,27 +37,26 @@ WASM — persisted to `./.data/pglite`. It uses the same schema and migrations a
 
 | Script                 | What it does                                                                          |
 | ---------------------- | ------------------------------------------------------------------------------------- |
-| `npm run db:setup`     | Apply migrations, seed Skills/Titles/Capes, create the character "Joshua" if missing. |
+| `npm run db:setup`     | Apply migrations and create the character with an empty Quest Log if missing.         |
 | `npm run db:migrate`   | Apply versioned SQL migrations from `./drizzle`.                                      |
-| `npm run db:seed`      | Seed content + the development character (idempotent).                                |
-| `npm run db:seed:demo` | **Opt-in** demo progression (XP/GP/QP/CP) written through the real ledger as `SEED_DEMO`. Safe to re-run. |
-| `npm run db:reconcile` | Replay the ledger and verify cached balances match.                                   |
+| `npm run db:seed`      | Create the development character (idempotent).                                        |
+| `npm run db:seed:demo` | **Opt-in** demo quests and starter rewards. Safe to re-run.                           |
+| `npm run db:reconcile` | Replay the GP ledger and verify the cached balance matches.                           |
 | `npm run db:reset`     | Delete the **local** embedded database and re-run setup. Refuses to touch `DATABASE_URL`. |
 | `npm run db:generate`  | Generate a new migration after editing `src/server/db/schema.ts`.                     |
 
-A fresh character starts at Level 1 in all six Skills with 0 GP/QP/Combat Points. Demo progression exists only
-if you run `db:seed:demo`; it is defined in one place (`src/server/seed/development.ts`).
+A fresh character starts with 0 GP and an empty Quest Log. Demo content exists only if you run
+`db:seed:demo`; it is defined in one place (`src/server/seed/development.ts`).
 
 ### Using Supabase / hosted Postgres
 
-Copy `.env.example` to `.env` and set `DATABASE_URL` (Supabase → Project Settings → Database → connection
-string, pooler URI). Then run `npm run db:setup`. Supabase Auth is not wired yet; the app currently plays the
-single seeded character (see `resolveCurrentCharacterId`).
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Set `DATABASE_URL` (Supabase session pooler, port 5432) and the
+Supabase Auth variables, then run `npm run db:setup`.
 
 ## Quality checks
 
 ```bash
-npm test             # Vitest: engine unit tests + ledger integration tests on in-memory Postgres
+npm test             # Vitest: domain unit tests + service integration tests on in-memory Postgres
 npm run lint
 npm run typecheck
 npm run build
@@ -81,26 +66,31 @@ npm run build
 
 ```
 src/
-  game/                Pure game engine — no I/O, fully unit tested
-    config/balance.ts  Game balance: XP curve, Quest rewards, Focus XP, bounty, Respawn, Main Quest cap
-    vocabulary.ts      Canonical keys: Skills, difficulties, tiers, progression kinds
-    xp.ts              Level 1–99 curve, level progress, multi-level-up detection
-    ledger.ts          Ledger invariants + balance projection/replay
-    character.ts       Derived stats: Total Level (max 594), account age
-    content/           Seed definitions: six Skills, Titles, Skill Capes
+  game/                Pure domain rules — no I/O, unit tested
+    quests.ts          Quest Log ordering, Current/Locked derivation, insert/move, validation, GP defaults
+    gp.ts              GP ledger invariants + balance projection
+    rewards.ts         Reward validation, affordability, savings progress, reward icons, suggestions
+    settings.ts        Player settings defaults and validation
+    avatar.ts          Pixel avatar configuration
   server/
-    db/                Drizzle schema, client (Postgres or PGlite), migrator
-    progression/       The ONLY code that changes XP/GP/QP/Combat Points (transactional)
-    characters/        Character creation
-    queries/           Read models for Server Components (level math via the engine)
-    seed/              Content + development seed
+    db/                Drizzle schema (5 tables), client (Postgres or PGlite), migrator
+    gp/                The ONLY code that changes GP (append-only ledger, transactional, idempotent)
+    quests/            Add, edit, remove/restore, reorder, complete (Current Quest only)
+    rewards/           Reward Shop management and redemption
+    settings/          Settings and profile
+    auth/              Supabase sign-in, allowlist, character resolution
+    export/            Full-account JSON export
+    queries.ts         Read models for Server Components
+    loaders.ts         Cached per-request loaders
   components/
-    ui/                Design-system primitives (panels, buttons, bars, badges, dialog, tooltip…)
+    questlog/          Quest Log board, quest form, Quest Complete reveal
+    rewards/, completed/, settings/
+    ui/                Design-system primitives (panels, buttons, dialog, toast…)
     icons/             Original 16×16 pixel-art sprite set rendered as SVG
-    shell/             Rail, account strip, mobile drawer, bottom tabs
-    art/, character/   World vista artwork, pixel avatar
-  app/(realm)/         Routes: World (/), Skills, Character, and placeholder systems
-drizzle/               Versioned SQL migrations
+    shell/             Side rail, mobile top bar, bottom tabs
+  app/(realm)/         Routes: Quest Log (/), /reward-shop, /completed, /settings
+  app/login, app/auth  Email sign-in link flow
+drizzle/               Versioned SQL migrations (0006–0008 migrate V1 data to V2)
 ```
 
 Visual direction follows the approved mockups in `docs/mockups/` (look and feel only — the spec governs

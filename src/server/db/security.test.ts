@@ -21,7 +21,7 @@ describe("Database security", () => {
       relname: string;
       relrowsecurity: boolean;
     }[];
-    expect(list.length).toBeGreaterThan(20);
+    expect(list.map((r) => r.relname).sort()).toEqual(["characters", "gp_transactions", "quests", "reward_redemptions", "rewards"]);
     expect(list.filter((r) => !r.relrowsecurity).map((r) => r.relname)).toEqual([]);
   });
 });

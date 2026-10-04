@@ -2,7 +2,7 @@
 export default function Loading() {
   return (
     <div role="status" aria-live="polite" className="mx-auto max-w-6xl space-y-4">
-      <p className="q-display text-sm uppercase tracking-[0.2em] text-text-muted">Loading Adventure…</p>
+      <p className="q-display text-sm uppercase tracking-[0.2em] text-text-muted">Opening Quest Log…</p>
       <div className="q-stone q-frame h-48 p-5">
         <div className="q-skeleton h-6 w-48" />
         <div className="q-skeleton mt-4 h-4 w-72" />

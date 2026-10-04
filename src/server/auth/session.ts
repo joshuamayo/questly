@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { GameRuleError } from "@/game/errors";
 import type { Db } from "../db/client";
-import { firstCharacterId } from "../queries/character-sheet";
+import { firstCharacterId } from "../queries";
 import { characterForUser, type SignedInUser } from "./characters";
 import { assertNoAuthModeAllowed, getAuthConfig, isEmailAllowed } from "./config";
 

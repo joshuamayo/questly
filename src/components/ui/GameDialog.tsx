@@ -15,6 +15,7 @@ export function GameDialog({
   description,
   trigger,
   placement = "center",
+  tone = "stone",
   children,
 }: {
   open?: boolean;
@@ -23,6 +24,8 @@ export function GameDialog({
   description?: string;
   trigger?: ReactNode;
   placement?: "center" | "left";
+  /** Surface for centered dialogs: dark stone (default) or parchment. */
+  tone?: "stone" | "parchment";
   children: ReactNode;
 }) {
   return (
@@ -34,15 +37,25 @@ export function GameDialog({
           className={cx(
             "fixed z-50 flex flex-col focus:outline-none",
             placement === "center"
-              ? "q-stone q-frame-gold left-1/2 top-1/2 max-h-[85vh] w-[min(92vw,32rem)] -translate-x-1/2 -translate-y-1/2 p-6"
+              ? cx(
+                  tone === "parchment" ? "q-parchment" : "q-stone",
+                  "q-frame-gold left-1/2 top-1/2 max-h-[90vh] w-[min(92vw,32rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto p-6",
+                )
               : "q-timber inset-y-0 left-0 w-[min(86vw,20rem)] border-r-2 border-gold-700 shadow-deep data-[state=open]:animate-[q-rise_var(--duration-base)_var(--ease-game)]",
           )}
         >
-          <Dialog.Title className={cx("q-display q-engraved text-lg", placement === "left" && "sr-only")}>
+          <Dialog.Title
+            className={cx(
+              tone === "parchment" ? "q-title text-display-md leading-tight text-parchment-ink" : "q-display q-engraved text-lg",
+              placement === "left" && "sr-only",
+            )}
+          >
             {title}
           </Dialog.Title>
           {description ? (
-            <Dialog.Description className="mt-1 text-sm text-text-secondary">{description}</Dialog.Description>
+            <Dialog.Description className={cx("mt-1 text-sm", tone === "parchment" ? "text-parchment-ink-soft" : "text-text-secondary")}>
+              {description}
+            </Dialog.Description>
           ) : (
             <Dialog.Description className="sr-only">{title}</Dialog.Description>
           )}

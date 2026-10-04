@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { cx } from "@/lib/cx";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "success" | "secondary" | "ghost";
 type Size = "sm" | "md" | "lg";
 
 const BASE =
@@ -15,6 +15,10 @@ const VARIANTS: Record<Variant, string> = {
     "border-gold-700 text-timber-950 hover:brightness-110 " +
     "bg-[linear-gradient(180deg,var(--color-gold-200),var(--color-gold-400)_45%,var(--color-gold-500))] " +
     "[box-shadow:inset_0_0_0_1px_var(--color-gold-100),inset_0_-3px_0_var(--color-gold-600),0_0_0_1px_var(--color-border-dark),var(--shadow-raised)]",
+  success:
+    "border-moss-700 text-parchment-50 hover:brightness-110 " +
+    "bg-[linear-gradient(180deg,var(--color-moss-400),var(--color-moss-600)_55%,var(--color-moss-700))] " +
+    "[box-shadow:inset_0_0_0_1px_rgb(255_255_255/0.18),inset_0_-3px_0_var(--color-moss-700),0_0_0_1px_var(--color-border-dark),var(--shadow-raised)] [text-shadow:0_1px_0_rgb(0_0_0/0.5)]",
   secondary:
     "border-blue-600 bg-stone-850 text-text-primary hover:border-blue-400 hover:bg-stone-800 " +
     "[box-shadow:inset_0_1px_0_rgb(255_255_255/0.05),var(--shadow-raised)]",

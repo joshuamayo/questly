@@ -12,7 +12,7 @@ const ART_ROOT = path.join(process.cwd(), "public", "art");
 const EXTENSIONS = [".webp", ".png", ".jpg"];
 const cache = new Map<string, string | null>();
 
-/** Public URL for an art slot such as "banners/skills", or null if not delivered yet. */
+/** Public URL for an art slot such as "banners/settings", or null if not delivered yet. */
 export function artUrl(slot: string): string | null {
   if (process.env.NODE_ENV === "production" && cache.has(slot)) return cache.get(slot)!;
   let found: string | null = null;

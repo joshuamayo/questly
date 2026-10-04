@@ -22,7 +22,7 @@ export function PageBanner({
   const url = artUrl(`banners/${slot}`) ?? artUrl("banners/default");
   return (
     <header className="relative isolate -mx-3 -mt-4 mb-4 overflow-hidden sm:-mx-5 lg:-mx-6 lg:-mt-0">
-      <div aria-hidden className="absolute inset-y-0 right-0 -z-10 w-full lg:w-[72%]">
+      <div aria-hidden className="q-vista absolute inset-y-0 right-0 -z-10 w-full lg:w-[72%]">
         {url ? (
           <Image src={url} alt="" fill priority unoptimized sizes="75vw" className="q-pixel object-cover object-center" />
         ) : (

@@ -28,7 +28,7 @@ export function ProgressBar({
   label: string;
   valueText?: string;
   tone?: Tone;
-  /** Custom fill color token (e.g. a Skill color). Overrides `tone`. */
+  /** Custom fill color token. Overrides `tone`. */
   color?: string;
   size?: "sm" | "md" | "lg";
   showValue?: boolean;
