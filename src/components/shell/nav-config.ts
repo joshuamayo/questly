@@ -11,7 +11,7 @@ export type NavDestination = {
 /** Canonical primary navigation (CLAUDE.md §4). Do not add items. */
 export const PRIMARY_NAV: readonly NavDestination[] = [
   { href: "/", label: "World", icon: "world", available: true },
-  { href: "/quests", label: "Quests", icon: "quests", available: false },
+  { href: "/quests", label: "Quests", icon: "quests", available: true },
   { href: "/questlines", label: "Questlines", icon: "questlines", available: false },
   { href: "/skills", label: "Skills", icon: "skills", available: true },
   { href: "/achievement-diaries", label: "Achievement Diaries", icon: "diaries", available: false },

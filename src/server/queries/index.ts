@@ -15,6 +15,15 @@ import {
 } from "./character-sheet";
 
 export { toCharacterStatus } from "./character-sheet";
+import {
+  getCurrentAdventure,
+  getQuestCounts,
+  getQuestDetail,
+  listQuests,
+  listTemplates,
+  type JournalView,
+} from "./quests";
+
 export type { CharacterSheet, CharacterStatus, ChronicleEntry, SkillSheet, XpEntry } from "./character-sheet";
 
 /** The current character's full sheet, memoized per request. */
@@ -35,4 +44,21 @@ export const loadChronicle = cache(async (limit = 6) => {
 export const loadRecentXp = cache(async (limit = 5) => {
   const sheet = await loadCharacterSheet();
   return getRecentXp(await getDb(), sheet.id, limit);
+});
+
+// ---------------------------------------------------------------------------
+// Quests
+// ---------------------------------------------------------------------------
+
+export type { QuestDetail, QuestSummary, QuestTemplateView, JournalView } from "./quests";
+
+const currentId = async () => (await loadCharacterSheet()).id;
+
+export const loadQuests = cache(async (view: JournalView) => listQuests(await getDb(), await currentId(), view));
+export const loadQuestCounts = cache(async () => getQuestCounts(await getDb(), await currentId()));
+export const loadQuestDetail = cache(async (questId: string) => getQuestDetail(await getDb(), await currentId(), questId));
+export const loadCurrentAdventure = cache(async () => getCurrentAdventure(await getDb(), await currentId()));
+export const loadTemplates = cache(async () => {
+  await connection();
+  return listTemplates(await getDb());
 });

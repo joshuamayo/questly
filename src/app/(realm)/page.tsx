@@ -15,7 +15,10 @@ import { Greeting } from "@/components/world/Greeting";
 import { YourCharacterPanel } from "@/components/world/YourCharacterPanel";
 import { formatNumber } from "@/lib/format";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, loadChronicle } from "@/server/queries";
+import { loadCharacterSheet, loadChronicle, loadCurrentAdventure } from "@/server/queries";
+import { DifficultyBadge } from "@/components/quests/DifficultyBadge";
+import { QuestDates } from "@/components/quests/QuestDates";
+import { QUEST_STATUS_LABELS } from "@/game/quests";
 
 export const metadata: Metadata = { title: "World" };
 
@@ -28,7 +31,7 @@ function ViewAll({ href, label }: { href: string; label: string }) {
 }
 
 export default async function WorldPage() {
-  const [sheet, chronicle] = await Promise.all([loadCharacterSheet(), loadChronicle(5)]);
+  const [sheet, chronicle, adventure] = await Promise.all([loadCharacterSheet(), loadChronicle(5), loadCurrentAdventure()]);
   const mapUrl = artUrl("world/map");
   const top = sheet.skills.reduce((best, s) => (s.progress.totalXp > best.progress.totalXp ? s : best));
   const tp = top.progress;
@@ -74,22 +77,76 @@ export default async function WorldPage() {
             action={<ViewAll href="/quests" label="View all Quests" />}
             divider
           />
-          <div className="flex flex-1 flex-col gap-4 pt-3 sm:flex-row sm:items-center">
-            <div className="q-well flex size-24 shrink-0 items-center justify-center self-center border border-border-dark">
-              <PixelIcon name="quests" size={56} />
-            </div>
-            <div className="flex-1">
-              <p className="q-title text-xl text-text-primary">No active adventure</p>
-              <p className="text-text-secondary">Your Quest Journal awaits. Every adventure starts somewhere.</p>
-              <p className="mt-2 flex items-center gap-2 text-sm text-text-muted">
-                <PixelIcon name="bosses" size={16} className="opacity-60" />
-                No foe currently stands between you and your biggest goal.
-              </p>
-            </div>
-          </div>
-          <GameLinkButton href="/quests" variant="primary" className="mt-4 w-full">
-            Open Quest Journal →
-          </GameLinkButton>
+          {adventure ? (
+            <>
+              <div className="flex flex-1 flex-col gap-4 pt-3 sm:flex-row sm:items-start">
+                <SkillIcon icon={adventure.icon} size={64} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-300">
+                    {adventure.priority === "MAIN" ? "Main Quest" : "Side Quest"} · {QUEST_STATUS_LABELS[adventure.status]}
+                  </p>
+                  <p className="q-title text-2xl leading-tight text-text-primary">{adventure.title}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <DifficultyBadge difficulty={adventure.difficulty} />
+                    <span className="text-sm" style={{ color: skillColor(adventure.skillKey) }}>
+                      {adventure.skillName}
+                    </span>
+                  </div>
+                  {adventure.description && <p className="mt-2 line-clamp-2 text-text-secondary">{adventure.description}</p>}
+                  {adventure.currentStep && (
+                    <p className="mt-2 text-text-primary">
+                      <span className="text-blue-300">Current Step:</span> {adventure.currentStep}
+                    </p>
+                  )}
+                  {adventure.progress.total > 0 && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <ProgressBar
+                        className="flex-1"
+                        color={skillColor(adventure.skillKey)}
+                        value={adventure.progress.percent}
+                        label="Current adventure progress"
+                        valueText={`${adventure.progress.done} of ${adventure.progress.total} objectives`}
+                      />
+                      <span className="text-sm tabular-nums text-text-secondary">{adventure.progress.percent}% complete</span>
+                    </div>
+                  )}
+                  <div className="mt-2">
+                    <QuestDates targetDate={adventure.targetDate} deadline={adventure.deadline} active compact />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 border-t border-stone-700 pt-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-text-muted">Rewards (completion)</p>
+                <p className="mt-1 flex flex-wrap gap-x-4 text-text-primary">
+                  <span>+{formatNumber(adventure.rewards.xp)} {adventure.skillName} XP</span>
+                  <span>+{adventure.rewards.gp} GP</span>
+                  <span>+{adventure.rewards.qp} QP</span>
+                </p>
+              </div>
+              <GameLinkButton href={`/quests/${adventure.id}`} variant="primary" className="mt-4 w-full">
+                Continue Adventure →
+              </GameLinkButton>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-1 flex-col gap-4 pt-3 sm:flex-row sm:items-center">
+                <div className="q-well flex size-24 shrink-0 items-center justify-center self-center border border-border-dark">
+                  <PixelIcon name="quests" size={56} />
+                </div>
+                <div className="flex-1">
+                  <p className="q-title text-xl text-text-primary">No active adventure</p>
+                  <p className="text-text-secondary">Your Quest Journal awaits. Every adventure starts somewhere.</p>
+                  <p className="mt-2 flex items-center gap-2 text-sm text-text-muted">
+                    <PixelIcon name="bosses" size={16} className="opacity-60" />
+                    No foe currently stands between you and your biggest goal.
+                  </p>
+                </div>
+              </div>
+              <GameLinkButton href="/quests/board" variant="primary" className="mt-4 w-full">
+                Begin Adventure →
+              </GameLinkButton>
+            </>
+          )}
         </GamePanel>
 
         <GamePanel as="section" labelledBy="world-questline" className="flex flex-col p-4">

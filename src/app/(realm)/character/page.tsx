@@ -14,7 +14,8 @@ import { totalLevelMilestones } from "@/game/character";
 import { cx } from "@/lib/cx";
 import { formatNumber } from "@/lib/format";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet } from "@/server/queries";
+import { loadCharacterSheet, loadQuestCounts, loadQuests } from "@/server/queries";
+import { QuestCard } from "@/components/quests/QuestCard";
 
 export const metadata: Metadata = { title: "Character" };
 
@@ -48,7 +49,7 @@ function SealedPanel({ id, icon, title, message }: { id: string; icon: SpriteNam
 }
 
 export default async function CharacterPage() {
-  const sheet = await loadCharacterSheet();
+  const [sheet, counts, active] = await Promise.all([loadCharacterSheet(), loadQuestCounts(), loadQuests("active")]);
   const milestones = totalLevelMilestones(sheet.totalLevel);
   const totalPct = (sheet.totalLevel / sheet.maxTotalLevel) * 100;
 
@@ -147,8 +148,36 @@ export default async function CharacterPage() {
             </ul>
           </GamePanel>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <SealedPanel id="char-quests" icon="quests" title="Active Quests" message="Your active Quests will appear here." />
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[1.4fr_1fr_1fr]">
+            <GamePanel as="section" labelledBy="char-quests" className="p-4">
+              <SectionHeader
+                id="char-quests"
+                icon={<PixelIcon name="quests" size={22} />}
+                title="Active Quests"
+                divider
+                action={
+                  <Link href="/quests" className="text-sm text-blue-300 hover:underline">
+                    View All →
+                  </Link>
+                }
+              />
+              {active.length ? (
+                <ul className="mt-3 flex flex-col gap-2">
+                  {active.slice(0, 2).map((q) => (
+                    <li key={q.id}>
+                      <QuestCard quest={q} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-text-secondary">
+                  No active Quests.{" "}
+                  <Link href="/quests/new" className="text-blue-300 hover:underline">
+                    Create one
+                  </Link>
+                </p>
+              )}
+            </GamePanel>
             <SealedPanel id="char-boss" icon="bosses" title="Current Boss" message="Your Current Boss will appear here." />
             <SealedPanel id="char-collection" icon="collection" title="Collection Log" message="Recent Collection items will appear here." />
           </div>
@@ -202,6 +231,7 @@ export default async function CharacterPage() {
             <SectionHeader id="char-lifetime" icon={<PixelIcon name="diaries" size={22} />} title="Lifetime Stats" divider />
             <dl className="mt-2">
               {[
+                ["Quests completed", counts.completed],
                 ["Total XP", sheet.totalXp],
                 ["GP earned", sheet.gp.lifetimeEarned],
                 ["GP spent", sheet.gp.lifetimeSpent],
@@ -213,7 +243,7 @@ export default async function CharacterPage() {
                 </div>
               ))}
             </dl>
-            <p className="mt-2 text-sm text-text-muted">Quests, Bosses, Focus hours, and more are recorded once those systems arrive.</p>
+            <p className="mt-2 text-sm text-text-muted">Bosses, Focus hours, and more are recorded once those systems arrive.</p>
           </GamePanel>
         </div>
       </div>

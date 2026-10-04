@@ -3,7 +3,7 @@
  * uses, running all level math through the game engine exactly once.
  */
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, notInArray } from "drizzle-orm";
 import { normalizeAvatar, type AvatarConfig } from "@/game/avatar";
 import { adventureDay, describeAccountAge, MAX_TOTAL_LEVEL, totalLevel, totalXp } from "@/game/character";
 import { CharacterNotFoundError } from "@/game/errors";
@@ -133,13 +133,16 @@ export type ChronicleEntry = {
   text: string;
 };
 
+/** Fine-grained events kept for Quest history but left out of the Chronicle. */
+const QUIET_EVENTS = ["QUEST_OBJECTIVE_COMPLETED"];
+
 /** Recent account events for the World chronicle. Only real, recorded events. */
 export async function getRecentChronicle(db: Db, characterId: string, limit = 6): Promise<ChronicleEntry[]> {
   const [rows, skillRows] = await Promise.all([
     db
       .select()
       .from(activityEvents)
-      .where(eq(activityEvents.characterId, characterId))
+      .where(and(eq(activityEvents.characterId, characterId), notInArray(activityEvents.type, QUIET_EVENTS)))
       .orderBy(desc(activityEvents.createdAt))
       .limit(limit),
     db.select({ key: skills.key, name: skills.name }).from(skills),
@@ -151,6 +154,18 @@ export async function getRecentChronicle(db: Db, characterId: string, limit = 6)
     switch (e.type) {
       case "CHARACTER_CREATED":
         text = "Your adventure began.";
+        break;
+      case "QUEST_ACCEPTED":
+        text = `Quest accepted: ${p.title}`;
+        break;
+      case "QUEST_COMPLETED":
+        text = `Quest complete: ${p.title}`;
+        break;
+      case "QUEST_ABANDONED":
+        text = `Quest abandoned: ${p.title}`;
+        break;
+      case "QUEST_RESTORED":
+        text = `Quest restored: ${p.title}`;
         break;
       case "LEVEL_UP": {
         const name = skillName.get(String(p.skillKey)) ?? "A Skill";

@@ -8,6 +8,13 @@
       "when": 1791127372184,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791131199938,
+      "tag": "0001_quests",
+      "breakpoints": true
     }
   ]
 }

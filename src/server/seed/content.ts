@@ -5,9 +5,10 @@
 
 import { sql } from "drizzle-orm";
 import { CAPE_DEFINITIONS, TITLE_DEFINITIONS } from "@/game/content/cosmetics";
+import { QUEST_TEMPLATES } from "@/game/content/quest-templates";
 import { SKILL_DEFINITIONS } from "@/game/content/skills";
 import type { Db } from "../db/client";
-import { capes, skills, titles } from "../db/schema";
+import { capes, questTemplates, skills, titles } from "../db/schema";
 
 const excluded = (column: string) => sql.raw(`excluded.${column}`);
 
@@ -48,6 +49,22 @@ export async function seedContent(db: Db) {
           name: excluded("name"),
           description: excluded("description"),
           skillKey: excluded("skill_key"),
+          sortOrder: excluded("sort_order"),
+        },
+      });
+    await tx
+      .insert(questTemplates)
+      .values(QUEST_TEMPLATES.map((q) => ({ ...q })))
+      .onConflictDoUpdate({
+        target: questTemplates.key,
+        set: {
+          title: excluded("title"),
+          description: excluded("description"),
+          skillKey: excluded("skill_key"),
+          difficulty: excluded("difficulty"),
+          objectives: excluded("objectives"),
+          icon: excluded("icon"),
+          isCustom: excluded("is_custom"),
           sortOrder: excluded("sort_order"),
         },
       });

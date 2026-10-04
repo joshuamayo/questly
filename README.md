@@ -5,11 +5,12 @@
 - `CLAUDE.md` — implementation constitution (rules, vocabulary, invariants)
 - `QUESTLY_PRODUCT_SPEC.md` — product behavior and game rules
 
-## Status: Phase 1 — Foundation
+## Status
 
-What exists: the app shell and navigation, World, Skills, and Character screens on real persisted state; the
-six canonical Skills; the Level 1–99 XP engine; the XP/GP/QP/Combat Points ledger; centralized game balance and
-design tokens. Every other system is an intentional placeholder route.
+- **Phase 1 — Foundation:** shell, design system, six Skills, XP engine, progression ledger.
+- **Phase 2 — Core Quest Loop:** Quest Journal, Quest Board (templates), Create & Accept Quest, Active Quest
+  (Quest Journal, Current Step, objectives, notes, status), idempotent completion with snapshotted rewards,
+  Quest Complete + Level Up celebration, World Current Adventure.
 
 ## Quick start
 

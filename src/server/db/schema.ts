@@ -15,6 +15,7 @@ import {
   bigserial,
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -174,6 +175,87 @@ export const activityEvents = pgTable(
   },
   (t) => [index("activity_character_created_idx").on(t.characterId, t.createdAt)],
 );
+
+// ---------------------------------------------------------------------------
+// Quests
+// ---------------------------------------------------------------------------
+
+/** Seed content: reusable Quest Board adventures. Never mutated by play. */
+export const questTemplates = pgTable("quest_templates", {
+  key: text("key").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  skillKey: text("skill_key").references(() => skills.key),
+  difficulty: text("difficulty"),
+  objectives: jsonb("objectives").notNull().default([]),
+  icon: text("icon").notNull(),
+  isCustom: boolean("is_custom").notNull().default(false),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+export const quests = pgTable(
+  "quests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    templateKey: text("template_key").references(() => questTemplates.key),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    skillKey: text("skill_key")
+      .notNull()
+      .references(() => skills.key),
+    difficulty: text("difficulty").notNull(),
+    status: text("status").notNull(),
+    priority: text("priority").notNull().default("SIDE"),
+    targetDate: date("target_date", { mode: "string" }),
+    deadline: date("deadline", { mode: "string" }),
+    /** Reward snapshot taken at acceptance (CLAUDE.md §10). */
+    rewardXp: integer("reward_xp").notNull(),
+    rewardGp: integer("reward_gp").notNull(),
+    rewardQp: integer("reward_qp").notNull(),
+    notes: text("notes").notNull().default(""),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+    abandonedAt: timestamp("abandoned_at", { withTimezone: true, mode: "date" }),
+    createdAt: createdAt(),
+    updatedAt: createdAt("updated_at"),
+  },
+  (t) => [
+    check(
+      "quests_status_valid",
+      sql`${t.status} IN ('AVAILABLE', 'LOCKED', 'ACCEPTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'ABANDONED')`,
+    ),
+    check(
+      "quests_difficulty_valid",
+      sql`${t.difficulty} IN ('NOVICE', 'INTERMEDIATE', 'EXPERIENCED', 'MASTER', 'GRANDMASTER')`,
+    ),
+    check("quests_priority_valid", sql`${t.priority} IN ('MAIN', 'SIDE')`),
+    check("quests_rewards_non_negative", sql`${t.rewardXp} >= 0 AND ${t.rewardGp} >= 0 AND ${t.rewardQp} >= 0`),
+    check("quests_completed_has_timestamp", sql`(${t.status} = 'COMPLETED') = (${t.completedAt} IS NOT NULL)`),
+    index("quests_character_status_idx").on(t.characterId, t.status),
+  ],
+);
+
+export const questObjectives = pgTable(
+  "quest_objectives",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    questId: uuid("quest_id")
+      .notNull()
+      .references(() => quests.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    position: integer("position").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("quest_objectives_quest_idx").on(t.questId, t.position)],
+);
+
+export type QuestRow = typeof quests.$inferSelect;
+export type QuestObjectiveRow = typeof questObjectives.$inferSelect;
+export type QuestTemplateRow = typeof questTemplates.$inferSelect;
 
 export type CharacterRow = typeof characters.$inferSelect;
 export type SkillRow = typeof skills.$inferSelect;
