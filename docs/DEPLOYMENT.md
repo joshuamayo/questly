@@ -24,8 +24,9 @@ You will collect four values along the way. Keep them in a note until Step 3:
 ### Get `DATABASE_URL`
 
 4. Click the **Connect** button at the top of the project dashboard.
-5. Under **Connection string**, choose **Transaction pooler** (port `6543`). Copy the URI. It looks like
-   `postgresql://postgres.abcdefgh:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres`.
+5. Under **Connection string**, choose **Session pooler** (port `5432`). Copy the URI. It looks like
+   `postgresql://postgres.abcdefgh:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres`.
+   (Avoid the transaction pooler on port 6543: pages that run many queries at once can hang there.)
 6. Replace `[YOUR-PASSWORD]` (including the brackets) with the password from step 2. This is your
    `DATABASE_URL`.
 
@@ -98,7 +99,7 @@ That's it — Questly is live, and only your email can get in.
 
 | Symptom | Fix |
 | ------- | --- |
-| Build fails at "Migrations applied" | Check `DATABASE_URL`: password substituted, brackets removed, port `6543`. |
+| Build fails at "Migrations applied" | Check `DATABASE_URL`: password substituted, brackets removed, port `5432` (session pooler). |
 | Page says "running in production without sign-in" | `SUPABASE_URL` / `SUPABASE_ANON_KEY` are missing in Vercel. Add them and redeploy. |
 | No email arrives | Check spam; wait a minute (rate limit); confirm the email exactly matches `QUESTLY_ALLOWED_EMAILS`. |
 | "That sign-in link has expired or was already used" | Request a new link and open it in the same browser you requested it from. |
@@ -110,7 +111,7 @@ That's it — Questly is live, and only your email can get in.
 
 - **Site:** https://questly-joshuamayo2-4370.vercel.app (Vercel project `questly`, functions in `pdx1`).
 - **Database:** Supabase project `Questly` (`us-west-2`). The app connects as a dedicated role, `questly_app`,
-  through the **transaction pooler at `aws-0-us-west-2.pooler.supabase.com:6543`**, so the username is
+  through the **session pooler at `aws-0-us-west-2.pooler.supabase.com:5432`**, so the username is
   `questly_app.<project-ref>`. The role owns Questly's tables, is not a superuser, and cannot bypass RLS.
   To rotate its password: `ALTER ROLE questly_app PASSWORD '…'` in the Supabase SQL editor, then update
   `DATABASE_URL` in Vercel and redeploy.

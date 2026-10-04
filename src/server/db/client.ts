@@ -24,8 +24,11 @@ export async function openDatabase(config: DatabaseConfig = getDatabaseConfig())
       import("postgres"),
       import("drizzle-orm/postgres-js"),
     ]);
-    // `prepare: false` keeps compatibility with Supabase's transaction pooler.
-    const client = postgres(config.url, { prepare: false, max: 5 });
+    // `prepare: false` keeps compatibility with Supabase's poolers. Use the
+    // *session* pooler (port 5432): the transaction pooler can drop replies
+    // when many queries are pipelined on one connection. Idle connections are
+    // released quickly so serverless instances stay within the pool limit.
+    const client = postgres(config.url, { prepare: false, max: 5, idle_timeout: 20, connect_timeout: 15 });
     return { db: drizzle(client, { schema }) as unknown as Db, close: () => client.end(), config };
   }
   const [{ PGlite }, { drizzle }, fs] = await Promise.all([
