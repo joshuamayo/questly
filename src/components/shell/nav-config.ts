@@ -14,10 +14,10 @@ export const PRIMARY_NAV: readonly NavDestination[] = [
   { href: "/quests", label: "Quests", icon: "quests", available: true },
   { href: "/questlines", label: "Questlines", icon: "questlines", available: true },
   { href: "/skills", label: "Skills", icon: "skills", available: true },
-  { href: "/achievement-diaries", label: "Achievement Diaries", icon: "diaries", available: false },
-  { href: "/combat-achievements", label: "Combat Achievements", icon: "combat", available: false },
+  { href: "/achievement-diaries", label: "Achievement Diaries", icon: "diaries", available: true },
+  { href: "/combat-achievements", label: "Combat Achievements", icon: "combat", available: true },
   { href: "/bosses", label: "Bosses", icon: "bosses", available: true },
-  { href: "/collection-log", label: "Collection Log", icon: "collection", available: false },
+  { href: "/collection-log", label: "Collection Log", icon: "collection", available: true },
   { href: "/reward-shop", label: "Reward Shop", icon: "shop", available: false },
 ];
 

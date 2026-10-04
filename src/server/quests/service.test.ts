@@ -140,13 +140,13 @@ describe("completing Quests", () => {
     const second = await completeQuest(ctx.db, ctx.character.id, q.id);
     expect(first.duplicate).toBe(false);
     expect(second.duplicate).toBe(true);
-    const rows = await ledger();
+    const rows = (await ledger()).filter((r) => r.sourceType === "QUEST");
     expect(rows.map((r) => [r.kind, r.amount]).sort()).toEqual([
       ["GP", 15],
       ["QP", 3],
       ["XP", 750],
     ]);
-    expect(rows.every((r) => r.sourceType === "QUEST" && r.sourceId === q.id)).toBe(true);
+    expect(rows.every((r) => r.sourceId === q.id)).toBe(true);
     expect(await character()).toMatchObject({ gpBalance: 15, questPoints: 3 });
   });
 

@@ -49,6 +49,8 @@ export const titles = pgTable("titles", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   isStarter: boolean("is_starter").notNull().default(false),
+  /** Tracking rule that unlocks the title (null for starter titles). */
+  rule: jsonb("rule"),
   sortOrder: integer("sort_order").notNull(),
 });
 
@@ -248,6 +250,8 @@ export const quests = pgTable(
     bounty: jsonb("bounty"),
     acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
     completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+    /** The player's local calendar date at completion (for on-time tracking). */
+    completedLocalDate: date("completed_local_date", { mode: "string" }),
     abandonedAt: timestamp("abandoned_at", { withTimezone: true, mode: "date" }),
     createdAt: createdAt(),
     updatedAt: createdAt("updated_at"),
@@ -351,6 +355,106 @@ export const questObjectives = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("quest_objectives_quest_idx").on(t.questId, t.position)],
+);
+
+// ---------------------------------------------------------------------------
+// Meta progression: Combat Achievements, Collection Log, Achievement Diaries
+// ---------------------------------------------------------------------------
+
+export const combatAchievements = pgTable("combat_achievements", {
+  key: text("key").primaryKey(),
+  tier: text("tier").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  rule: jsonb("rule").notNull(),
+  combatPoints: integer("combat_points").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+export const characterCombatAchievements = pgTable(
+  "character_combat_achievements",
+  {
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    achievementKey: text("achievement_key")
+      .notNull()
+      .references(() => combatAchievements.key),
+    completedAt: createdAt("completed_at"),
+  },
+  (t) => [primaryKey({ columns: [t.characterId, t.achievementKey] })],
+);
+
+export const collectionItems = pgTable("collection_items", {
+  key: text("key").primaryKey(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  rarity: text("rarity").notNull(),
+  secret: boolean("secret").notNull().default(false),
+  icon: text("icon").notNull(),
+  /** Null = claimed manually. */
+  rule: jsonb("rule"),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+export const characterCollectionItems = pgTable(
+  "character_collection_items",
+  {
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    itemKey: text("item_key")
+      .notNull()
+      .references(() => collectionItems.key),
+    unlockedAt: createdAt("unlocked_at"),
+    /** AUTO (rule met) or MANUAL (claimed by the player). */
+    source: text("source").notNull(),
+    note: text("note").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.characterId, t.itemKey] })],
+);
+
+export const diaryEntryTemplates = pgTable("diary_entry_templates", {
+  key: text("key").primaryKey(),
+  period: text("period").notNull(),
+  tier: text("tier").notNull(),
+  title: text("title").notNull(),
+  rule: jsonb("rule").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+});
+
+/** Player-written manual Diary entries for a specific period. */
+export const diaryCustomEntries = pgTable(
+  "diary_custom_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    periodStart: date("period_start", { mode: "string" }).notNull(),
+    tier: text("tier").notNull(),
+    title: text("title").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("diary_custom_character_period_idx").on(t.characterId, t.period, t.periodStart)],
+);
+
+/** One row per claimed Diary tier: the primary key makes claims one-time. */
+export const diaryClaims = pgTable(
+  "diary_claims",
+  {
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    periodStart: date("period_start", { mode: "string" }).notNull(),
+    tier: text("tier").notNull(),
+    claimedAt: createdAt("claimed_at"),
+  },
+  (t) => [primaryKey({ columns: [t.characterId, t.period, t.periodStart, t.tier] })],
 );
 
 export type QuestRow = typeof quests.$inferSelect;

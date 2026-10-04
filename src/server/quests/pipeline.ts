@@ -11,6 +11,7 @@ import type { RequirementContext } from "@/game/requirements";
 import type { SkillKey } from "@/game/vocabulary";
 import type { Db } from "../db/client";
 import { activityEvents, questlines, quests, type QuestRow } from "../db/schema";
+import { syncProgression, emptyUnlocks, type MetaUnlocks } from "../meta/sync";
 import { recordProgression } from "../progression/service";
 import { buildRequirementContext, lockStates } from "../requirements/service";
 
@@ -18,6 +19,7 @@ export type LevelUpInfo = { skillKey: SkillKey; fromLevel: number; toLevel: numb
 
 export type PipelineResult = {
   boss: { tier: BountyTier; bountyGp: number } | null;
+  meta: MetaUnlocks;
   unlocked: { id: string; title: string }[];
   questline: { id: string; title: string; bonusXp: number; bonusGp: number; skillKey: SkillKey } | null;
   levelUps: LevelUpInfo[];
@@ -30,7 +32,7 @@ export async function onQuestCompleted(
   today: string,
   ctxBefore: RequirementContext,
 ): Promise<PipelineResult> {
-  const result: PipelineResult = { boss: null, unlocked: [], questline: null, levelUps: [] };
+  const result: PipelineResult = { boss: null, unlocked: [], questline: null, levelUps: [], meta: emptyUnlocks() };
 
   // 1. Boss bounty — bonus GP only, never deducts, never replaces Quest rewards.
   if (quest.isBoss) {
@@ -103,5 +105,7 @@ export async function onQuestCompleted(
       }
     }
   }
+  // 4. Combat Achievements, Collection Log, Titles.
+  result.meta = await syncProgression(tx, characterId);
   return result;
 }

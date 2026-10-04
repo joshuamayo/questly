@@ -21,6 +21,8 @@ export async function completeFocusAction(sessionId: string) {
       minimumMinutes: r.minimumMinutes,
       leveledUp: r.xp?.leveledUp ?? false,
       newLevel: r.xp?.newLevel ?? null,
+      achievements: r.meta.achievements.map((a) => a.title),
+      collection: r.meta.collection.map((c) => c.title),
     };
   });
 }

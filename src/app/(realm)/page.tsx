@@ -5,6 +5,7 @@ import { WorldVista } from "@/components/art/WorldVista";
 import { PixelIcon } from "@/components/icons/PixelIcon";
 import { SkillIcon } from "@/components/icons/SkillIcon";
 import { skillColor } from "@/components/skills/skill-style";
+import { skillUnlocks } from "@/components/skills/SkillPanels";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { GameLinkButton } from "@/components/ui/GameButton";
 import { GamePanel } from "@/components/ui/GamePanel";
@@ -16,7 +17,8 @@ import { Greeting } from "@/components/world/Greeting";
 import { YourCharacterPanel } from "@/components/world/YourCharacterPanel";
 import { formatNumber } from "@/lib/format";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, loadChronicle, loadCurrentAdventure, loadCurrentBoss, loadQuestlineDetail, loadQuestlines } from "@/server/queries";
+import { loadCharacterSheet, loadChronicle, loadCollection, loadCurrentAdventure, loadCurrentBoss, loadDiary, loadQuestlineDetail, loadQuestlines } from "@/server/queries";
+import { DIARY_TIER_LABELS } from "@/game/diaries";
 import { nodeState } from "@/components/questlines/node-state";
 import { DifficultyBadge } from "@/components/quests/DifficultyBadge";
 import { QuestDates } from "@/components/quests/QuestDates";
@@ -40,6 +42,10 @@ export default async function WorldPage() {
     loadCurrentBoss(),
     loadQuestlines(),
   ]);
+  const [weekly, collection] = await Promise.all([loadDiary("WEEKLY"), loadCollection()]);
+  const weeklyTier = weekly.tiers.find((t) => !t.claimed) ?? null;
+  const owned = collection.filter((c) => c.state === "UNLOCKED");
+  const recentItems = [...owned].sort((a, b) => (b.unlockedAt ?? "").localeCompare(a.unlockedAt ?? "")).slice(0, 6);
   const activeLine = lines.find((l) => l.status === "ACTIVE") ?? null;
   const lineDetail = activeLine ? await loadQuestlineDetail(activeLine.id) : null;
   const mapUrl = artUrl("world/map");
@@ -269,7 +275,12 @@ export default async function WorldPage() {
               title={`Level 99 · ${top.name} Cape`}
               status={tp.isMaxLevel ? "Earned" : "Level 99"}
             />
-            <SealedSlot title="Milestone unlocks" />
+            {skillUnlocks(top.key)
+              .filter((u) => u.level > tp.level)
+              .slice(0, 1)
+              .map((u) => (
+                <SealedSlot key={u.key} icon={<PixelIcon name="collection" size={18} />} title={`Level ${u.level} · ${u.title}`} status={`Level ${u.level}`} />
+              ))}
           </div>
         </GamePanel>
       </div>
@@ -291,22 +302,73 @@ export default async function WorldPage() {
           </ol>
         </GamePanel>
 
-        <GamePanel as="section" labelledBy="world-diary" className="p-4">
-          <SectionHeader id="world-diary" icon={<PixelIcon name="diaries" size={22} />} title="Achievement Diary" divider />
-          <EmptyState
-            icon={<PixelIcon name="diaries" size={40} className="opacity-60 grayscale" />}
-            title="Not yet built"
-            message="Weekly and Monthly Diaries with Easy, Medium, Hard, and Elite tiers arrive in a later update."
+        <GamePanel as="section" labelledBy="world-diary" className="flex flex-col p-4">
+          <SectionHeader
+            id="world-diary"
+            icon={<PixelIcon name="diaries" size={22} />}
+            title="Achievement Diary"
+            divider
+            action={<ViewAll href="/achievement-diaries" label="View Achievement Diaries" />}
           />
+          <p className="q-title mt-3 text-xl text-text-primary">{weekly.period.label}</p>
+          {weeklyTier ? (
+            <>
+              <p className="text-sm text-text-secondary">
+                {DIARY_TIER_LABELS[weeklyTier.tier]} tier · {weeklyTier.done} / {weeklyTier.total}
+                {weeklyTier.claimable && <span className="text-gold-200"> · ready to claim!</span>}
+              </p>
+              <ProgressBar
+                className="mt-2"
+                color={`var(--color-tier-${weeklyTier.tier.toLowerCase()})`}
+                value={weeklyTier.total ? (weeklyTier.done / weeklyTier.total) * 100 : 0}
+                label="Diary tier progress"
+                valueText={`${weeklyTier.done} of ${weeklyTier.total}`}
+              />
+              <ul className="mt-2 flex flex-col gap-1 text-sm">
+                {weekly.entries
+                  .filter((e) => e.tier === weeklyTier.tier)
+                  .map((e) => (
+                    <li key={e.id} className="flex items-center gap-2">
+                      <span aria-hidden className={e.complete ? "text-moss-300" : "text-text-muted"}>{e.complete ? "✓" : "○"}</span>
+                      <span className={e.complete ? "text-text-muted" : "text-text-primary"}>{e.title}</span>
+                    </li>
+                  ))}
+              </ul>
+              <p className="mt-auto pt-3 text-sm text-text-secondary">
+                Next reward: +{weeklyTier.reward.gp} GP · +{weeklyTier.reward.focusXp} Focus XP
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-moss-300">Every tier claimed this week. Well done.</p>
+          )}
         </GamePanel>
 
-        <GamePanel as="section" labelledBy="world-collection" className="p-4">
-          <SectionHeader id="world-collection" icon={<PixelIcon name="collection" size={22} />} title="Collection Log" divider />
-          <EmptyState
-            icon={<PixelIcon name="collection" size={40} className="opacity-60 grayscale" />}
-            title="Not yet built"
-            message="A museum of your meaningful accomplishments arrives in a later update."
+        <GamePanel as="section" labelledBy="world-collection" className="flex flex-col p-4">
+          <SectionHeader
+            id="world-collection"
+            icon={<PixelIcon name="collection" size={22} />}
+            title="Collection Log"
+            divider
+            action={<ViewAll href="/collection-log" label="View the Collection Log" />}
           />
+          <div className="mt-3 flex items-center gap-2">
+            <ProgressBar className="flex-1" tone="moss" value={(owned.length / collection.length) * 100} label="Collection completion" valueText={`${owned.length} of ${collection.length}`} />
+            <span className="text-sm tabular-nums text-text-secondary">
+              {owned.length} / {collection.length}
+            </span>
+          </div>
+          {recentItems.length ? (
+            <ul className="mt-3 grid grid-cols-3 gap-2" aria-label="Recently collected">
+              {recentItems.map((c) => (
+                <li key={c.key} className="q-tile flex flex-col items-center gap-1 p-2 text-center" title={c.title}>
+                  <SkillIcon icon={c.icon} size={28} framed={false} />
+                  <span className="line-clamp-2 text-xs text-text-secondary">{c.title}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-text-secondary">Nothing discovered here yet. Complete your first Quest to begin the collection.</p>
+          )}
         </GamePanel>
       </div>
     </div>

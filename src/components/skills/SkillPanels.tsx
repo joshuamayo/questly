@@ -7,6 +7,8 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { formatNumber } from "@/lib/format";
 import { cx } from "@/lib/cx";
+import { COLLECTION_ITEMS } from "@/game/content/collection";
+import { TITLE_DEFINITIONS } from "@/game/content/cosmetics";
 import type { SkillSheet } from "@/server/queries/character-sheet";
 import { skillColor } from "./skill-style";
 
@@ -62,6 +64,23 @@ export function SkillHero({ skill, sceneUrl }: { skill: SkillSheet; sceneUrl: st
 
 type Milestone = { key: string; level: number; title: string; detail: string; state: "done" | "current" | "next" | "locked" };
 
+/** Real unlocks tied to this Skill's level, from seed content. */
+export function skillUnlocks(skillKey: string): { key: string; level: number; title: string; detail: string }[] {
+  const items = COLLECTION_ITEMS.filter((i) => i.rule?.metric === "skillLevel" && i.rule.skill === skillKey && i.rule.target < 99).map((i) => ({
+    key: `item-${i.key}`,
+    level: i.rule!.target,
+    title: `Collection: ${i.title}`,
+    detail: i.description,
+  }));
+  const titles = TITLE_DEFINITIONS.filter((t) => t.rule?.metric === "skillLevel" && t.rule.skill === skillKey).map((t) => ({
+    key: `title-${t.key}`,
+    level: t.rule!.target,
+    title: `Title: ${t.name}`,
+    detail: t.description,
+  }));
+  return [...items, ...titles].sort((a, b) => a.level - b.level);
+}
+
 function milestonesFor(skill: SkillSheet): Milestone[] {
   const p = skill.progress;
   const list: Milestone[] = [
@@ -72,6 +91,9 @@ function milestonesFor(skill: SkillSheet): Milestone[] {
       detail: "The cosmetic mark of mastery.",
       state: p.isMaxLevel ? "done" : "locked",
     },
+    ...skillUnlocks(skill.key)
+      .reverse()
+      .map((u) => ({ ...u, state: (p.level >= u.level ? "done" : "locked") as Milestone["state"] })),
   ];
   if (!p.isMaxLevel && p.level + 1 < 99) {
     list.push({
@@ -86,7 +108,7 @@ function milestonesFor(skill: SkillSheet): Milestone[] {
     list.push({ key: "current", level: p.level, title: "Current Level", detail: `${formatNumber(p.totalXp)} XP earned`, state: "current" });
   }
   list.push({ key: "start", level: 1, title: "Began training", detail: "Every legend starts at Level 1.", state: "done" });
-  return list;
+  return list.sort((a, b) => b.level - a.level || (a.key === "next" ? -1 : 1));
 }
 
 /** Vertical milestone track: real thresholds only, no invented unlocks. */
@@ -129,9 +151,7 @@ export function SkillMilestones({ skill }: { skill: SkillSheet }) {
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-sm text-text-muted">
-        Titles, frames, and Quest content tied to Skill levels arrive in a later update.
-      </p>
+
     </GamePanel>
   );
 }

@@ -11,6 +11,7 @@ import { getDatabaseConfig } from "@/server/env";
 import { seedContent } from "@/server/seed/content";
 import { seedDemoProgression, seedDevelopmentCharacter } from "@/server/seed/development";
 import { reconcileCharacter } from "@/server/progression/service";
+import { syncProgression } from "@/server/meta/sync";
 
 async function main() {
   const command = process.argv[2];
@@ -35,6 +36,9 @@ async function main() {
       await seedContent(db);
       const { character, created } = await seedDevelopmentCharacter(db);
       console.log(`✓ Content seeded; character "${character.displayName}" ${created ? "created" : "already exists"}`);
+      const unlocks = await syncProgression(db, character.id);
+      const n = unlocks.achievements.length + unlocks.collection.length + unlocks.titles.length;
+      if (n) console.log(`✓ Progression synced: ${n} newly earned (achievements, collection, titles)`);
     }
     if (command === "seed-demo") {
       await seedContent(db);

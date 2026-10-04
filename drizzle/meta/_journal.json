@@ -22,6 +22,13 @@
       "when": 1791132195681,
       "tag": "0002_focus_questlines_bosses",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791133661132,
+      "tag": "0003_meta_progression",
+      "breakpoints": true
     }
   ]
 }

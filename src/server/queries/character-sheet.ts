@@ -179,6 +179,18 @@ export async function getRecentChronicle(db: Db, characterId: string, limit = 6)
       case "NEW_QUEST_AVAILABLE":
         text = `New Quest available: ${p.title}`;
         break;
+      case "COMBAT_ACHIEVEMENT_COMPLETED":
+        text = `Combat Achievement: ${p.title} (+${p.combatPoints} CP)`;
+        break;
+      case "COLLECTION_ITEM_OBTAINED":
+        text = `Collection item obtained: ${p.title}`;
+        break;
+      case "TITLE_UNLOCKED":
+        text = `Title unlocked: ${p.name}`;
+        break;
+      case "DIARY_TIER_CLAIMED":
+        text = `Diary tier complete: ${String(p.tier).charAt(0)}${String(p.tier).slice(1).toLowerCase()} — ${p.period}`;
+        break;
       case "LEVEL_UP": {
         const name = skillName.get(String(p.skillKey)) ?? "A Skill";
         text = `${name} reached Level ${p.toLevel}.`;

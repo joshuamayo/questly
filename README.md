@@ -14,6 +14,10 @@
 - **Phase 3 — Focus + Questlines:** Focus Mode (server-timed sessions, capped Focus XP with diminishing returns),
   Questlines (builder, adventure-path map, dependency unlocking, completion bonus), requirements engine and locked
   Quests, Bosses (one Current Boss, HP from objectives, snapshotted bounty, Boss Defeated celebration).
+- **Phase 4 — Meta Progression:** one metrics engine with explicit tracking rules; 36 auto-tracked Combat
+  Achievements (Combat Points once each); 47-slot Collection Log with secret slots, manual milestone claims, and
+  memories; Weekly/Monthly Achievement Diaries (auto + personal entries, in-order one-time tier claims); Titles
+  and Skill Capes; Character Profile records.
 
 ## Quick start
 

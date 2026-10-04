@@ -14,7 +14,19 @@ import { totalLevelMilestones } from "@/game/character";
 import { cx } from "@/lib/cx";
 import { formatNumber } from "@/lib/format";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, loadCurrentBoss, loadDefeatedBosses, loadFocusStats, loadQuestCounts, loadQuests } from "@/server/queries";
+import {
+  loadCharacterSheet,
+  loadCollection,
+  loadCombatAchievements,
+  loadCurrentBoss,
+  loadDefeatedBosses,
+  loadDiaryHistory,
+  loadFocusStats,
+  loadQuestCounts,
+  loadQuests,
+  loadTitlesAndCapes,
+} from "@/server/queries";
+import { EquipPanel } from "@/components/character/EquipPanel";
 import { QuestCard } from "@/components/quests/QuestCard";
 
 export const metadata: Metadata = { title: "Character" };
@@ -29,25 +41,6 @@ function StatTile({ icon, label, value }: { icon: SpriteName; label: string; val
   );
 }
 
-function SealedPanel({ id, icon, title, message }: { id: string; icon: SpriteName; title: string; message: string }) {
-  return (
-    <GamePanel as="section" labelledBy={id} className="p-4">
-      <SectionHeader id={id} icon={<PixelIcon name={icon} size={22} />} title={title} divider />
-      <div className="mt-3 flex items-center gap-3">
-        <div className="q-well flex size-14 shrink-0 items-center justify-center border border-stone-700">
-          <PixelIcon name={icon} size={30} className="opacity-50 grayscale" />
-        </div>
-        <div>
-          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-muted">
-            <PixelIcon name="lock" size={12} /> Not yet built
-          </p>
-          <p className="text-sm text-text-secondary">{message}</p>
-        </div>
-      </div>
-    </GamePanel>
-  );
-}
-
 export default async function CharacterPage() {
   const [sheet, counts, active, boss, defeated, focus] = await Promise.all([
     loadCharacterSheet(),
@@ -57,6 +50,11 @@ export default async function CharacterPage() {
     loadDefeatedBosses(),
     loadFocusStats(),
   ]);
+  const [collection, achievements, diaryClaims, cosmetics] = await Promise.all([loadCollection(), loadCombatAchievements(), loadDiaryHistory(), loadTitlesAndCapes()]);
+  const owned = collection.filter((c) => c.state === "UNLOCKED");
+  const rarityRank = ["LEGENDARY", "EPIC", "RARE", "UNCOMMON", "COMMON"];
+  const significant = [...owned].sort((a, b) => rarityRank.indexOf(a.rarity) - rarityRank.indexOf(b.rarity)).slice(0, 5);
+  const recentItems = [...owned].sort((a, b) => (b.unlockedAt ?? "").localeCompare(a.unlockedAt ?? "")).slice(0, 6);
   const milestones = totalLevelMilestones(sheet.totalLevel);
   const totalPct = (sheet.totalLevel / sheet.maxTotalLevel) * 100;
 
@@ -98,7 +96,7 @@ export default async function CharacterPage() {
                     <StatTile icon="qp" label="Quest Points" value={sheet.questPoints} />
                     <StatTile icon="combat-points" label="Combat Points" value={sheet.combatPoints} />
                     <StatTile icon="gp" label="GP" value={sheet.gp.balance} />
-                    <StatTile icon="total-level" label="Total XP" value={sheet.totalXp} />
+                    <StatTile icon="collection" label={`Collection (${collection.length})`} value={owned.length} />
                   </dl>
                 </div>
                 <dl className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -117,6 +115,25 @@ export default async function CharacterPage() {
               </div>
             </div>
           </GamePanel>
+
+          <EquipPanel titles={cosmetics.titles} capes={cosmetics.capes} equippedTitle={sheet.title?.key ?? null} equippedCape={sheet.cape?.key ?? null} />
+
+          {significant.length > 0 && (
+            <GamePanel as="section" labelledBy="char-significant" className="p-4">
+              <SectionHeader id="char-significant" icon={<PixelIcon name="total-level" size={22} />} title="Significant Achievements" divider />
+              <ul className="mt-3 flex flex-wrap gap-3">
+                {significant.map((c) => (
+                  <li key={c.key} className="flex w-24 flex-col items-center gap-1 text-center">
+                    <SkillIcon icon={c.icon} size={36} />
+                    <span className="text-xs text-text-primary">{c.title}</span>
+                    <span className="text-[0.65rem] font-bold uppercase tracking-wider" style={{ color: `var(--color-rarity-${c.rarity.toLowerCase()})` }}>
+                      {c.rarity.toLowerCase()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </GamePanel>
+          )}
 
           {/* ── Skills ───────────────────────────────────────────────── */}
           <GamePanel as="section" labelledBy="char-skills" className="p-4">
@@ -202,7 +219,34 @@ export default async function CharacterPage() {
                 </p>
               )}
             </GamePanel>
-            <SealedPanel id="char-collection" icon="collection" title="Collection Log" message="Recent Collection items will appear here." />
+            <GamePanel as="section" labelledBy="char-collection" className="p-4">
+              <SectionHeader
+                id="char-collection"
+                icon={<PixelIcon name="collection" size={22} />}
+                title="Collection Log"
+                divider
+                action={
+                  <Link href="/collection-log" className="text-sm text-blue-300 hover:underline">
+                    View All →
+                  </Link>
+                }
+              />
+              {recentItems.length ? (
+                <ul className="mt-3 grid grid-cols-3 gap-2">
+                  {recentItems.map((c) => (
+                    <li key={c.key} className="q-tile flex flex-col items-center gap-1 p-2 text-center" title={c.title}>
+                      <SkillIcon icon={c.icon} size={26} framed={false} />
+                      <span className="line-clamp-1 text-xs text-text-secondary">{c.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-text-secondary">Nothing discovered here yet.</p>
+              )}
+              <p className="mt-2 text-sm text-text-muted">
+                {owned.length} / {collection.length} items ({Math.floor((owned.length / collection.length) * 100)}%)
+              </p>
+            </GamePanel>
           </div>
         </div>
 
@@ -255,6 +299,9 @@ export default async function CharacterPage() {
             <dl className="mt-2">
               {[
                 ["Quests completed", counts.completed],
+                ["Combat Achievements", achievements.filter((a) => a.completedAt).length],
+                ["Diary tiers claimed", diaryClaims.length],
+                ["Collection items", owned.length],
                 ["Bosses defeated", defeated.length],
                 ["Focus sessions", focus.sessions],
                 ["Focus minutes", focus.minutes],
@@ -269,7 +316,7 @@ export default async function CharacterPage() {
                 </div>
               ))}
             </dl>
-            <p className="mt-2 text-sm text-text-muted">Achievements and Collection records arrive with those systems.</p>
+
           </GamePanel>
         </div>
       </div>

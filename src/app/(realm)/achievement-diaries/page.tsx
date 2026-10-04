@@ -1,21 +1,19 @@
 import type { Metadata } from "next";
-import { SystemPlaceholder } from "@/components/system/SystemPlaceholder";
+import { PageBanner } from "@/components/art/PageBanner";
+import { DiaryBoard } from "@/components/meta/DiaryBoard";
+import { daysRemaining } from "@/game/diaries";
+import { loadDiary } from "@/server/queries";
+import { serverToday } from "@/server/requirements/service";
 
 export const metadata: Metadata = { title: "Achievement Diaries" };
 
-export default function Page() {
+export default async function DiariesPage() {
+  const [weekly, monthly] = await Promise.all([loadDiary("WEEKLY"), loadDiary("MONTHLY")]);
+  const today = serverToday();
   return (
-    <SystemPlaceholder
-      slot="achievement-diaries"
-      title="Achievement Diaries"
-      icon="diaries"
-      tagline="Complete diaries and track your long-term progress."
-      description="Achievement Diaries collect broader sets of accomplishments into Easy, Medium, Hard, and Elite tiers."
-      features={[
-        "Track Weekly and Monthly Diaries",
-        "Progress entries manually or automatically",
-        "Claim tier rewards once, in order",
-      ]}
-    />
+    <>
+      <PageBanner slot="achievement-diaries" title="Achievement Diaries" tagline="Complete diaries, earn rewards, and track your long-term consistency." />
+      <DiaryBoard weekly={weekly} monthly={monthly} daysLeft={{ WEEKLY: daysRemaining(weekly.period, today), MONTHLY: daysRemaining(monthly.period, today) }} />
+    </>
   );
 }

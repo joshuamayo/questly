@@ -117,12 +117,43 @@ export const QUESTLINE_BONUS = {
   gpShare: 0.25,
 } as const;
 
+/** Combat Points per Combat Achievement tier (permanent, non-spendable). */
+export const COMBAT_POINTS_BY_TIER = {
+  EASY: 1,
+  MEDIUM: 2,
+  HARD: 3,
+  ELITE: 4,
+  MASTER: 5,
+  GRANDMASTER: 6,
+} as const;
+
+/**
+ * Achievement Diary tier rewards: GP plus bonus Focus XP (Diaries reward
+ * consistency). Each tier is claimed once per Diary, in order.
+ */
+export const DIARY_REWARDS = {
+  WEEKLY: {
+    EASY: { gp: 10, focusXp: 50 },
+    MEDIUM: { gp: 20, focusXp: 100 },
+    HARD: { gp: 35, focusXp: 200 },
+    ELITE: { gp: 50, focusXp: 350 },
+  },
+  MONTHLY: {
+    EASY: { gp: 30, focusXp: 150 },
+    MEDIUM: { gp: 60, focusXp: 300 },
+    HARD: { gp: 100, focusXp: 600 },
+    ELITE: { gp: 150, focusXp: 1_000 },
+  },
+} as const;
+
 export const GAME_BALANCE = {
   xpCurve: XP_CURVE,
   questRewards: QUEST_REWARDS,
   focusXp: FOCUS_XP,
   bossBounty: BOSS_BOUNTY,
   questlineBonus: QUESTLINE_BONUS,
+  combatPointsByTier: COMBAT_POINTS_BY_TIER,
+  diaryRewards: DIARY_REWARDS,
   respawnThresholds: RESPAWN_THRESHOLDS,
   mainQuestCap: MAIN_QUEST_CAP,
 } as const;

@@ -20,7 +20,10 @@ import { RewardTiles } from "./RewardTiles";
  */
 export function QuestCelebration({ payload, onClose }: { payload: CompletionPayload | null; onClose: () => void }) {
   const boss = payload?.boss;
-  const hasSide = Boolean(payload && (payload.levelUps.length || payload.questline || payload.unlocked.length));
+  const meta = payload?.meta;
+  const hasSide = Boolean(
+    payload && (payload.levelUps.length || payload.questline || payload.unlocked.length || meta?.achievements.length || meta?.collection.length || meta?.titles.length),
+  );
   return (
     <Dialog.Root open={Boolean(payload)} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
@@ -99,6 +102,49 @@ export function QuestCelebration({ payload, onClose }: { payload: CompletionPayl
                       <p className="text-text-secondary">
                         Completion bonus: +{formatNumber(payload.questline.bonusXp)} XP and +{payload.questline.bonusGp} GP.
                       </p>
+                    </section>
+                  )}
+                  {meta && meta.collection.length > 0 && (
+                    <section aria-label="Collection Item Obtained" className="q-stone q-frame-gold q-enter flex flex-col gap-2 p-5" style={{ animationDelay: "350ms" }}>
+                      <p className="q-title flex items-center gap-2 text-2xl text-gold-300">
+                        <PixelIcon name="collection" size={24} /> New Collection Log Item!
+                      </p>
+                      <ul className="flex flex-col gap-2">
+                        {meta.collection.map((c) => (
+                          <li key={c.key} className="flex items-center gap-3">
+                            <SkillIcon icon={c.icon} size={32} />
+                            <span>
+                              <span className="block text-text-primary">{c.title}</span>
+                              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: `var(--color-rarity-${c.rarity.toLowerCase()})` }}>
+                                {c.rarity.toLowerCase()}
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                  {meta && meta.achievements.length > 0 && (
+                    <section aria-label="Combat Achievement Complete" className="q-stone q-frame q-enter flex flex-col gap-2 p-5" style={{ animationDelay: "380ms" }}>
+                      <p className="q-title flex items-center gap-2 text-2xl text-gold-300">
+                        <PixelIcon name="combat-points" size={24} /> Achievement Unlocked!
+                      </p>
+                      <ul className="flex flex-col gap-1">
+                        {meta.achievements.map((a) => (
+                          <li key={a.key} className="flex items-center justify-between gap-2 text-text-primary">
+                            <span>
+                              {a.title} <span className="text-xs text-text-muted">({a.tier.toLowerCase()})</span>
+                            </span>
+                            <span className="font-bold text-gold-200">+{a.combatPoints} CP</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                  {meta && meta.titles.length > 0 && (
+                    <section aria-label="Title Unlocked" className="q-stone q-frame q-enter p-5" style={{ animationDelay: "400ms" }}>
+                      <p className="q-title text-xl text-gold-300">Title Unlocked</p>
+                      <p className="text-text-primary">{meta.titles.map((t) => t.name).join(", ")} — equip it from your Character Profile.</p>
                     </section>
                   )}
                   {payload.unlocked.length > 0 && (

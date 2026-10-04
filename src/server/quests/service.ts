@@ -346,6 +346,7 @@ export type QuestCompletion = {
   boss: PipelineResult["boss"];
   unlocked: PipelineResult["unlocked"];
   questline: PipelineResult["questline"];
+  meta: PipelineResult["meta"];
   totals: { totalLevelBefore: number; totalLevelAfter: number; gpBalance: number; questPoints: number };
 };
 
@@ -386,6 +387,7 @@ export async function completeQuest(
         boss: null,
         unlocked: [],
         questline: null,
+        meta: { achievements: [], collection: [], titles: [] },
         totals: { totalLevelBefore: level, totalLevelAfter: level, gpBalance: c.gpBalance, questPoints: c.questPoints },
       };
     }
@@ -401,7 +403,7 @@ export async function completeQuest(
     const totalLevelBefore = totalLevel(xpMap);
     const ctxBefore = await buildRequirementContext(tx, characterId, today);
     const now = new Date();
-    await tx.update(quests).set({ status: "COMPLETED", completedAt: now, updatedAt: now }).where(eq(quests.id, questId));
+    await tx.update(quests).set({ status: "COMPLETED", completedAt: now, completedLocalDate: today, updatedAt: now }).where(eq(quests.id, questId));
 
     const source = { sourceType: "QUEST" as const, sourceId: questId, metadata: { questTitle: quest.title, difficulty: quest.difficulty } };
     const levelUps: LevelUpInfo[] = [];
@@ -438,6 +440,7 @@ export async function completeQuest(
       boss: pipeline.boss,
       unlocked: pipeline.unlocked,
       questline: pipeline.questline,
+      meta: pipeline.meta,
       totals: {
         totalLevelBefore,
         totalLevelAfter: totalLevel(Object.fromEntries(afterRows.map((r) => [r.skillKey, r.xp]))),

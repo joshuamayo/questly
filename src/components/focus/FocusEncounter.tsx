@@ -22,7 +22,17 @@ import type { QuestDetail } from "@/server/queries/quests";
 
 type Session = { id: string; startedAt: string; plannedMinutes: number };
 type Config = { presets: number[]; cap: number; tiers: { minMinutes: number; xp: number }[] };
-type Result = { minutes: number; xp: number; capped: boolean; multiplier: number; minimumMinutes: number; leveledUp: boolean; newLevel: number | null };
+type Result = {
+  minutes: number;
+  xp: number;
+  capped: boolean;
+  multiplier: number;
+  minimumMinutes: number;
+  leveledUp: boolean;
+  newLevel: number | null;
+  achievements: string[];
+  collection: string[];
+};
 
 function baseXp(minutes: number, tiers: Config["tiers"]) {
   return tiers.find((t) => minutes >= t.minMinutes)?.xp ?? 0;
@@ -283,6 +293,12 @@ export function FocusEncounter({
               : result.minutes < result.minimumMinutes
                 ? `Session complete: ${result.minutes} minutes. Sessions of ${result.minimumMinutes}+ minutes earn Focus XP.`
                 : `Session complete: ${result.minutes} minutes. You have reached today's Focus XP cap — rest is part of the game too.`}
+          </Notice>
+        )}
+        {result && (result.achievements.length > 0 || result.collection.length > 0) && (
+          <Notice tone="success">
+            {result.achievements.length > 0 && <>Achievement Unlocked: {result.achievements.join(", ")}. </>}
+            {result.collection.length > 0 && <>Collection Item Obtained: {result.collection.join(", ")}.</>}
           </Notice>
         )}
         {drop && (

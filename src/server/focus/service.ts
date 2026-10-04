@@ -10,6 +10,7 @@ import { isActiveStatus } from "@/game/quests";
 import type { XpGainResult } from "@/game/xp";
 import type { Db } from "../db/client";
 import { activityEvents, focusSessions, questObjectives, quests, type FocusSessionRow } from "../db/schema";
+import { syncProgression, type MetaUnlocks } from "../meta/sync";
 import { recordProgression } from "../progression/service";
 
 export async function getActiveSession(db: Db, characterId: string): Promise<FocusSessionRow | null> {
@@ -65,6 +66,7 @@ export type FocusCompletion = {
   focusXp: FocusXpResult;
   xp: XpGainResult | null;
   minimumMinutes: number;
+  meta: MetaUnlocks;
 };
 
 /**
@@ -118,7 +120,8 @@ export async function completeFocusSession(db: Db, characterId: string, sessionI
       entityId: session.questId ?? session.id,
       payload: { minutes, xp: updated.focusXpAwarded },
     });
-    return { session: updated, minutes, focusXp, xp, minimumMinutes: min };
+    const meta = await syncProgression(tx, characterId);
+    return { session: updated, minutes, focusXp, xp, minimumMinutes: min, meta };
   });
 }
 

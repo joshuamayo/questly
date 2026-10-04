@@ -1,21 +1,16 @@
 import type { Metadata } from "next";
-import { SystemPlaceholder } from "@/components/system/SystemPlaceholder";
+import { PageBanner } from "@/components/art/PageBanner";
+import { CollectionLog } from "@/components/meta/CollectionLog";
+import { loadCollection } from "@/server/queries";
 
 export const metadata: Metadata = { title: "Collection Log" };
 
-export default function Page() {
+export default async function CollectionLogPage() {
+  const items = await loadCollection();
   return (
-    <SystemPlaceholder
-      slot="collection-log"
-      title="Collection Log"
-      icon="collection"
-      tagline="A museum of everything you have accomplished."
-      description="The Collection Log is a permanent museum of meaningful accomplishments — a grid of collectible slots, some hidden until discovered."
-      features={[
-        "Fill collectible slots across six categories",
-        "Discover secret ??? items",
-        "Attach memories to unlocked items",
-      ]}
-    />
+    <>
+      <PageBanner slot="collection-log" title="Collection Log" tagline="A museum of everything you have accomplished." />
+      <CollectionLog items={items} />
+    </>
   );
 }

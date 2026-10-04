@@ -15,6 +15,9 @@ import {
 } from "./character-sheet";
 
 export { toCharacterStatus } from "./character-sheet";
+import { listCollection, listCombatAchievements, listTitlesAndCapes } from "./meta";
+import { diaryClaimHistory, getDiary } from "../diaries/service";
+import { serverToday } from "../requirements/service";
 import { getCurrentBoss, listBossCandidates, listDefeatedBosses } from "./bosses";
 import { getQuestlineDetail, listQuestlines } from "./questlines";
 import { focusStats, getActiveSession } from "../focus/service";
@@ -80,3 +83,16 @@ export const loadDefeatedBosses = cache(async () => listDefeatedBosses(await get
 export const loadBossCandidates = cache(async () => listBossCandidates(await getDb(), await currentId()));
 export const loadActiveFocusSession = cache(async () => getActiveSession(await getDb(), await currentId()));
 export const loadFocusStats = cache(async () => focusStats(await getDb(), await currentId()));
+
+// ---------------------------------------------------------------------------
+// Meta progression
+// ---------------------------------------------------------------------------
+
+export type { CombatAchievementView, CollectionItemView, TitleView, CapeView } from "./meta";
+export type { DiaryView, DiaryEntryView } from "../diaries/service";
+
+export const loadCombatAchievements = cache(async () => listCombatAchievements(await getDb(), await currentId()));
+export const loadCollection = cache(async () => listCollection(await getDb(), await currentId()));
+export const loadTitlesAndCapes = cache(async () => listTitlesAndCapes(await getDb(), await currentId()));
+export const loadDiary = cache(async (period: "WEEKLY" | "MONTHLY") => getDiary(await getDb(), await currentId(), period, serverToday()));
+export const loadDiaryHistory = cache(async () => diaryClaimHistory(await getDb(), await currentId()));

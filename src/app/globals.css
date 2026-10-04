@@ -131,6 +131,14 @@
   --color-difficulty-master: #e88b3a;
   --color-difficulty-grandmaster: #e4504a;
 
+  /* --- Combat Achievement / Diary tiers (always with label + icon) ------- */
+  --color-tier-easy: var(--color-moss-400);
+  --color-tier-medium: var(--color-blue-400);
+  --color-tier-hard: var(--color-crimson-400);
+  --color-tier-elite: #a066ea;
+  --color-tier-master: var(--color-gold-300);
+  --color-tier-grandmaster: #ef6b3c;
+
   /* --- Rarity (Collection Log, rewards) ---------------------------------- */
   --color-rarity-common: #bdb5a4;
   --color-rarity-uncommon: var(--color-moss-400);
