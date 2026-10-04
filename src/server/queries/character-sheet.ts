@@ -134,7 +134,7 @@ export type ChronicleEntry = {
 };
 
 /** Fine-grained events kept for Quest history but left out of the Chronicle. */
-const QUIET_EVENTS = ["QUEST_OBJECTIVE_COMPLETED"];
+const QUIET_EVENTS = ["QUEST_OBJECTIVE_COMPLETED", "FOCUS_SESSION_COMPLETED", "BOSS_DESIGNATED"];
 
 /** Recent account events for the World chronicle. Only real, recorded events. */
 export async function getRecentChronicle(db: Db, characterId: string, limit = 6): Promise<ChronicleEntry[]> {
@@ -167,13 +167,27 @@ export async function getRecentChronicle(db: Db, characterId: string, limit = 6)
       case "QUEST_RESTORED":
         text = `Quest restored: ${p.title}`;
         break;
+      case "BOSS_DEFEATED":
+        text = Number(p.bountyGp) > 0 ? `Boss defeated: ${p.title} (+${p.bountyGp} GP bounty)` : `Boss defeated: ${p.title}`;
+        break;
+      case "QUESTLINE_STARTED":
+        text = `Questline charted: ${p.title}`;
+        break;
+      case "QUESTLINE_COMPLETED":
+        text = `Questline complete: ${p.title}`;
+        break;
+      case "NEW_QUEST_AVAILABLE":
+        text = `New Quest available: ${p.title}`;
+        break;
       case "LEVEL_UP": {
         const name = skillName.get(String(p.skillKey)) ?? "A Skill";
         text = `${name} reached Level ${p.toLevel}.`;
         break;
       }
-      default:
-        text = e.type.replaceAll("_", " ").toLowerCase();
+      default: {
+        const words = e.type.replaceAll("_", " ").toLowerCase();
+        text = words.charAt(0).toUpperCase() + words.slice(1) + ".";
+      }
     }
     return { id: e.id, type: e.type, createdAt: e.createdAt.toISOString(), text };
   });

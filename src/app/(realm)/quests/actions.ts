@@ -1,32 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { GameRuleError } from "@/game/errors";
+import { runAction } from "@/server/actions/run";
+import { designateBoss, clearBoss } from "@/server/bosses/service";
 import type { QuestDraftInput, QuestPriority } from "@/game/quests";
-import { getDb } from "@/server/db/client";
-import { resolveCurrentCharacterId, getCharacterSheet } from "@/server/queries/character-sheet";
+import { getCharacterSheet } from "@/server/queries/character-sheet";
 import * as questService from "@/server/quests/service";
 
-export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
+export type { ActionResult } from "@/server/actions/run";
 
-/**
- * Runs a Quest mutation for the current character. Rule violations return
- * their player-facing message; unexpected failures say plainly that nothing
- * changed (the service runs in a transaction, so that is true).
- */
-async function run<T>(fn: (db: Awaited<ReturnType<typeof getDb>>, characterId: string) => Promise<T>): Promise<ActionResult<T>> {
-  try {
-    const db = await getDb();
-    const characterId = await resolveCurrentCharacterId(db);
-    const data = await fn(db, characterId);
-    revalidatePath("/", "layout");
-    return { ok: true, data };
-  } catch (error) {
-    if (error instanceof GameRuleError) return { ok: false, error: error.message };
-    console.error(error);
-    return { ok: false, error: "Something went wrong. Your progress was not changed. Try again." };
-  }
-}
+const run = runAction;
 
 export async function createQuestAction(input: QuestDraftInput) {
   return run(async (db, c) => (await questService.createQuest(db, c, input)).id);
@@ -79,28 +61,49 @@ export async function questStatusAction(questId: string, action: "hold" | "resum
   return run((db, c) => fn(db, c, questId));
 }
 
-export type CompletionPayload = questService.QuestCompletion & {
+export type CelebrationLevelUp = questService.QuestCompletion["levelUps"][number] & {
   skillName: string;
   skillIcon: string;
-  /** Skill progress after the reward, for the Level Up card. */
-  skillProgress: { level: number; percentToNext: number; xpRemaining: number; isMaxLevel: boolean };
+  progress: { level: number; percentToNext: number; xpRemaining: number; isMaxLevel: boolean };
 };
 
-export async function completeQuestAction(questId: string) {
+export type CompletionPayload = Omit<questService.QuestCompletion, "levelUps"> & {
+  skillName: string;
+  skillIcon: string;
+  levelUps: CelebrationLevelUp[];
+};
+
+export async function completeQuestAction(questId: string, localDate?: string) {
   return run<CompletionPayload>(async (db, c) => {
-    const result = await questService.completeQuest(db, c, questId);
+    const result = await questService.completeQuest(db, c, questId, { localDate });
     const sheet = await getCharacterSheet(db, c);
-    const skill = sheet.skills.find((s) => s.key === result.quest.skillKey)!;
+    const skillOf = (key: string) => sheet.skills.find((s) => s.key === key)!;
+    const questSkill = skillOf(result.quest.skillKey);
     return {
       ...result,
-      skillName: skill.name,
-      skillIcon: skill.icon,
-      skillProgress: {
-        level: skill.progress.level,
-        percentToNext: skill.progress.percentToNext,
-        xpRemaining: skill.progress.xpRemaining,
-        isMaxLevel: skill.progress.isMaxLevel,
-      },
+      skillName: questSkill.name,
+      skillIcon: questSkill.icon,
+      levelUps: result.levelUps.map((l) => {
+        const s = skillOf(l.skillKey);
+        return {
+          ...l,
+          skillName: s.name,
+          skillIcon: s.icon,
+          progress: {
+            level: s.progress.level,
+            percentToNext: s.progress.percentToNext,
+            xpRemaining: s.progress.xpRemaining,
+            isMaxLevel: s.progress.isMaxLevel,
+          },
+        };
+      }),
     };
+  });
+}
+
+export async function bossAction(questId: string, action: "designate" | "clear") {
+  return run(async (db, c) => {
+    if (action === "designate") await designateBoss(db, c, questId);
+    else await clearBoss(db, c, questId);
   });
 }

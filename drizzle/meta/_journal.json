@@ -15,6 +15,13 @@
       "when": 1791131199938,
       "tag": "0001_quests",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791132195681,
+      "tag": "0002_focus_questlines_bosses",
+      "breakpoints": true
     }
   ]
 }

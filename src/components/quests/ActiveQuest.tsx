@@ -12,10 +12,14 @@ import {
   setObjectiveDoneAction,
   setQuestPriorityAction,
   updateQuestDetailsAction,
+  bossAction,
   type ActionResult,
   type CompletionPayload,
 } from "@/app/(realm)/quests/actions";
+import { acceptQuestlineQuestAction, setManualRequirementAction } from "@/app/(realm)/questlines/actions";
 import { PixelIcon } from "@/components/icons/PixelIcon";
+import { bossHp } from "@/game/bosses";
+import Link from "next/link";
 import { SkillIcon } from "@/components/icons/SkillIcon";
 import { skillColor } from "@/components/skills/skill-style";
 import { Badge } from "@/components/ui/Badge";
@@ -28,6 +32,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { MAIN_QUEST_CAP } from "@/game/config/balance";
 import { canPerform, LIMITS, QUEST_STATUS_LABELS } from "@/game/quests";
 import { cx } from "@/lib/cx";
+import { localToday } from "@/lib/dates";
 import type { QuestDetail } from "@/server/queries/quests";
 import { DifficultyBadge } from "./DifficultyBadge";
 import { QuestCelebration } from "./QuestCelebration";
@@ -76,7 +81,7 @@ export function ActiveQuest({
   }
 
   function complete() {
-    act(() => completeQuestAction(quest.id), (data) => setCelebration(data));
+    act(() => completeQuestAction(quest.id, localToday()), (data) => setCelebration(data));
   }
 
   return (
@@ -104,7 +109,14 @@ export function ActiveQuest({
                 {quest.skillName}
               </span>
               <Badge tone="parchment">{quest.priority === "MAIN" ? "Main Quest" : "Side Quest"}</Badge>
-              <Badge tone={isComplete ? "moss" : status === "ABANDONED" ? "crimson" : "parchment"}>{QUEST_STATUS_LABELS[status]}</Badge>
+              <Badge tone={isComplete ? "moss" : status === "ABANDONED" ? "crimson" : "parchment"}>
+                {status === "AVAILABLE" ? (quest.lock?.locked ? "Locked" : "Available") : QUEST_STATUS_LABELS[status]}
+              </Badge>
+              {quest.isBoss && (
+                <Badge tone="crimson" icon={<PixelIcon name="bosses" size={12} />}>
+                  {isComplete ? "Boss Defeated" : "Current Boss"}
+                </Badge>
+              )}
             </div>
             <h1 id={`${ids}-title`} className="q-title mt-2 text-display-md leading-tight text-parchment-ink sm:text-display-lg">
               {quest.title}
@@ -113,6 +125,20 @@ export function ActiveQuest({
             <div className="mt-3">
               <QuestDates targetDate={quest.targetDate} deadline={quest.deadline} active={!isComplete && status !== "ABANDONED"} tone="parchment" />
             </div>
+            {quest.isBoss && (
+              <div className="mt-3 flex max-w-xl items-center gap-3">
+                <span className="text-sm font-bold text-parchment-ink">Boss HP</span>
+                <ProgressBar
+                  className="flex-1"
+                  size="lg"
+                  tone="crimson"
+                  value={bossHp(quest.progress, isComplete)}
+                  label="Boss HP"
+                  valueText={`${bossHp(quest.progress, isComplete)}% HP remaining`}
+                />
+                <span className="text-sm font-bold tabular-nums text-parchment-ink">{bossHp(quest.progress, isComplete)}%</span>
+              </div>
+            )}
             {quest.progress.total > 0 && (
               <div className="mt-3 flex max-w-xl items-center gap-3">
                 <ProgressBar
@@ -251,10 +277,10 @@ export function ActiveQuest({
               </form>
             )}
 
-            {canObjectives && current && (
-              <GameButton variant="primary" size="lg" className="mt-4 w-full" onClick={() => currentRef.current?.focus()}>
-                Continue Quest →
-              </GameButton>
+            {canObjectives && (
+              <GameLinkButton href={`/focus?quest=${quest.id}`} variant="primary" size="lg" className="mt-4 w-full">
+                {quest.isBoss ? "Enter Boss Fight →" : "Continue Quest →"}
+              </GameLinkButton>
             )}
           </GamePanel>
 
@@ -335,6 +361,16 @@ export function ActiveQuest({
               }
             />
             <dl className="mt-2 text-sm">
+              {quest.questline && (
+                <Row
+                  label="Questline"
+                  value={
+                    <Link href={`/questlines?id=${quest.questline.id}`} className="text-blue-300 hover:underline">
+                      {quest.questline.title}
+                    </Link>
+                  }
+                />
+              )}
               <Row label="Skill" value={quest.skillName} />
               <Row label="Difficulty" value={<DifficultyBadge difficulty={quest.difficulty} />} />
               {quest.acceptedAt && <Row label="Accepted" value={<LocalDate iso={quest.acceptedAt} />} />}
@@ -369,7 +405,16 @@ export function ActiveQuest({
             )}
           </GamePanel>
 
-          <StatusPanel quest={quest} pending={pending} onAct={(action) => act(() => questStatusAction(quest.id, action))} />
+          {status === "AVAILABLE" ? (
+            <AcceptPanel quest={quest} pending={pending} activeMainCount={activeMainCount} act={act} />
+          ) : (
+            <StatusPanel
+              quest={quest}
+              pending={pending}
+              onAct={(action) => act(() => questStatusAction(quest.id, action))}
+              onBoss={(action) => act(() => bossAction(quest.id, action))}
+            />
+          )}
 
           {quest.activity.length > 0 && (
             <GamePanel as="section" labelledBy={`${ids}-activity`} className="p-4">
@@ -453,10 +498,12 @@ function StatusPanel({
   quest,
   pending,
   onAct,
+  onBoss,
 }: {
   quest: QuestDetail;
   pending: boolean;
   onAct: (action: "hold" | "resume" | "abandon" | "restore") => void;
+  onBoss: (action: "designate" | "clear") => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const s = quest.status;
@@ -490,6 +537,25 @@ function StatusPanel({
         )}
       </div>
       {s === "ABANDONED" && <p className="mt-2 text-sm text-text-muted">Abandoned Quests award no rewards. Their history is kept and they can be restored.</p>}
+      {canPerform("EDIT", s) && (
+        <div className="mt-3 border-t border-stone-700 pt-3">
+          {quest.isBoss ? (
+            <>
+              <p className="text-sm text-text-secondary">This Quest is your Current Boss. Defeat it on time to claim the bounty.</p>
+              <GameButton variant="ghost" size="sm" className="mt-1 px-0" disabled={pending} onClick={() => onBoss("clear")}>
+                Stand Boss Down
+              </GameButton>
+            </>
+          ) : (
+            <>
+              <GameButton variant="secondary" size="sm" disabled={pending} onClick={() => onBoss("designate")}>
+                <PixelIcon name="bosses" size={16} /> Designate as Current Boss
+              </GameButton>
+              <p className="mt-1 text-xs text-text-muted">One Boss at a time. Designating this one stands any other Boss down.</p>
+            </>
+          )}
+        </div>
+      )}
       <Dialog.Root open={confirming} onOpenChange={setConfirming}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-void/80" />
@@ -590,5 +656,111 @@ function EditDetailsDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+function AcceptPanel({
+  quest,
+  pending,
+  activeMainCount,
+  act,
+}: {
+  quest: QuestDetail;
+  pending: boolean;
+  activeMainCount: number;
+  act: <T>(fn: () => Promise<ActionResult<T>>, onOk?: (data: T) => void) => void;
+}) {
+  const router = useRouter();
+  const ids = useId();
+  const [targetDate, setTargetDate] = useState("");
+  const [priority, setPriority] = useState<"MAIN" | "SIDE">("SIDE");
+  const lock = quest.lock;
+  const locked = Boolean(lock?.locked);
+  return (
+    <GamePanel as="section" labelledBy={`${ids}-accept`} className="p-4">
+      <SectionHeader id={`${ids}-accept`} icon={<PixelIcon name={locked ? "lock" : "quests"} size={22} />} title={locked ? "Locked Quest" : "Accept Quest"} divider />
+      {lock && (lock.dependencies.length > 0 || lock.requirements.length > 0) && (
+        <>
+          <p className="mt-3 text-sm font-bold text-gold-300">Requirements</p>
+          <ul className="mt-1 flex flex-col gap-1.5 text-sm">
+            {lock.dependencies.map((d) => (
+              <li key={d.questId} className="flex items-center gap-2">
+                <span aria-hidden className={d.met ? "text-moss-300" : "text-text-muted"}>{d.met ? "✓" : "○"}</span>
+                <span className={d.met ? "text-text-secondary" : "text-text-primary"}>
+                  Complete{" "}
+                  <Link href={`/quests/${d.questId}`} className="text-blue-300 hover:underline">
+                    {d.title}
+                  </Link>
+                </span>
+                <span className="sr-only">{d.met ? "(met)" : "(not met)"}</span>
+              </li>
+            ))}
+            {lock.requirements.map((r) => (
+              <li key={r.id} className="flex items-center gap-2">
+                {r.type === "MANUAL" ? (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={r.met}
+                    aria-label={`${r.description}: ${r.met ? "met" : "not met"}`}
+                    disabled={pending}
+                    onClick={() => act(() => setManualRequirementAction(r.id, !r.met))}
+                    className={cx("flex size-5 items-center justify-center rounded-xs border text-xs", r.met ? "border-moss-400 bg-moss-600 text-white" : "border-stone-500")}
+                  >
+                    {r.met ? "✓" : ""}
+                  </button>
+                ) : (
+                  <span aria-hidden className={r.met ? "text-moss-300" : "text-text-muted"}>{r.met ? "✓" : "○"}</span>
+                )}
+                <span className={r.met ? "text-text-secondary" : "text-text-primary"}>{r.description}</span>
+                <span className="ml-auto text-xs text-text-muted">{r.type === "MANUAL" ? "" : `(you have ${r.current})`}</span>
+                <span className="sr-only">{r.met ? "(met)" : "(not met)"}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {locked ? (
+        <p className="mt-3 text-sm text-text-muted">Meet every requirement to unlock this Quest.</p>
+      ) : (
+        <form
+          className="mt-3 grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            act(() => acceptQuestlineQuestAction(quest.id, { targetDate: targetDate || null, priority }, localToday()), () => router.refresh());
+          }}
+        >
+          <div>
+            <label htmlFor={`${ids}-target`} className="mb-1 block text-sm font-bold text-text-secondary">
+              Target date (optional)
+            </label>
+            <input id={`${ids}-target`} type="date" className={field} value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+          </div>
+          <div className="flex gap-1.5" role="radiogroup" aria-label="Priority">
+            {(["SIDE", "MAIN"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                role="radio"
+                aria-checked={priority === p}
+                disabled={p === "MAIN" && activeMainCount >= MAIN_QUEST_CAP}
+                onClick={() => setPriority(p)}
+                className={cx(
+                  "flex-1 rounded-sm border px-2 py-2 text-sm disabled:opacity-50",
+                  priority === p ? "border-gold-500 bg-gold-700/25 text-gold-200" : "border-stone-600 text-text-primary",
+                )}
+              >
+                {priority === p && "✓ "}
+                {p === "MAIN" ? "Main Quest" : "Side Quest"}
+              </button>
+            ))}
+          </div>
+          <GameButton type="submit" variant="primary" size="lg" disabled={pending}>
+            Accept Quest →
+          </GameButton>
+          <p className="text-xs text-text-muted">Rewards are locked in when you accept.</p>
+        </form>
+      )}
+    </GamePanel>
   );
 }

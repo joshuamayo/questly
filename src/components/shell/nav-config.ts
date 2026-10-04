@@ -12,11 +12,11 @@ export type NavDestination = {
 export const PRIMARY_NAV: readonly NavDestination[] = [
   { href: "/", label: "World", icon: "world", available: true },
   { href: "/quests", label: "Quests", icon: "quests", available: true },
-  { href: "/questlines", label: "Questlines", icon: "questlines", available: false },
+  { href: "/questlines", label: "Questlines", icon: "questlines", available: true },
   { href: "/skills", label: "Skills", icon: "skills", available: true },
   { href: "/achievement-diaries", label: "Achievement Diaries", icon: "diaries", available: false },
   { href: "/combat-achievements", label: "Combat Achievements", icon: "combat", available: false },
-  { href: "/bosses", label: "Bosses", icon: "bosses", available: false },
+  { href: "/bosses", label: "Bosses", icon: "bosses", available: true },
   { href: "/collection-log", label: "Collection Log", icon: "collection", available: false },
   { href: "/reward-shop", label: "Reward Shop", icon: "shop", available: false },
 ];

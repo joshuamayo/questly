@@ -153,8 +153,8 @@ describe("completing Quests", () => {
   it("reports a Level Up, including multiple levels from one reward", async () => {
     const q = await createQuest(ctx.db, ctx.character.id, draft({ difficulty: "GRANDMASTER", objectives: [] }));
     const result = await completeQuest(ctx.db, ctx.character.id, q.id);
-    expect(result.levelUp).toMatchObject({ skillKey: "creator", fromLevel: 1 });
-    expect(result.levelUp!.levelsReached.length).toBeGreaterThan(1);
+    expect(result.levelUps[0]).toMatchObject({ skillKey: "creator", fromLevel: 1 });
+    expect(result.levelUps[0].levelsReached.length).toBeGreaterThan(1);
     expect(result.totals.totalLevelAfter).toBeGreaterThan(result.totals.totalLevelBefore);
   });
 
@@ -162,7 +162,7 @@ describe("completing Quests", () => {
     await awardXp(ctx.db, ctx.character.id, "creator", xpForLevel(50), { sourceType: "SYSTEM" });
     const q = await createQuest(ctx.db, ctx.character.id, draft({ difficulty: "NOVICE", objectives: [] }));
     const result = await completeQuest(ctx.db, ctx.character.id, q.id);
-    expect(result.levelUp).toBeNull();
+    expect(result.levelUps).toEqual([]);
   });
 
   it("gives abandoned Quests no reward and preserves their history", async () => {

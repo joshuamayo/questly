@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { WorldVista } from "@/components/art/WorldVista";
 import { PixelIcon } from "@/components/icons/PixelIcon";
 import { SkillIcon } from "@/components/icons/SkillIcon";
@@ -15,7 +16,8 @@ import { Greeting } from "@/components/world/Greeting";
 import { YourCharacterPanel } from "@/components/world/YourCharacterPanel";
 import { formatNumber } from "@/lib/format";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, loadChronicle, loadCurrentAdventure } from "@/server/queries";
+import { loadCharacterSheet, loadChronicle, loadCurrentAdventure, loadCurrentBoss, loadQuestlineDetail, loadQuestlines } from "@/server/queries";
+import { nodeState } from "@/components/questlines/node-state";
 import { DifficultyBadge } from "@/components/quests/DifficultyBadge";
 import { QuestDates } from "@/components/quests/QuestDates";
 import { QUEST_STATUS_LABELS } from "@/game/quests";
@@ -31,7 +33,15 @@ function ViewAll({ href, label }: { href: string; label: string }) {
 }
 
 export default async function WorldPage() {
-  const [sheet, chronicle, adventure] = await Promise.all([loadCharacterSheet(), loadChronicle(5), loadCurrentAdventure()]);
+  const [sheet, chronicle, adventure, boss, lines] = await Promise.all([
+    loadCharacterSheet(),
+    loadChronicle(5),
+    loadCurrentAdventure(),
+    loadCurrentBoss(),
+    loadQuestlines(),
+  ]);
+  const activeLine = lines.find((l) => l.status === "ACTIVE") ?? null;
+  const lineDetail = activeLine ? await loadQuestlineDetail(activeLine.id) : null;
   const mapUrl = artUrl("world/map");
   const top = sheet.skills.reduce((best, s) => (s.progress.totalXp > best.progress.totalXp ? s : best));
   const tp = top.progress;
@@ -77,6 +87,22 @@ export default async function WorldPage() {
             action={<ViewAll href="/quests" label="View all Quests" />}
             divider
           />
+          {boss && (
+            <Link
+              href="/bosses"
+              className="mt-3 flex items-center gap-3 rounded-sm border border-crimson-500/70 bg-crimson-700/20 px-3 py-2 hover:border-crimson-400"
+            >
+              <PixelIcon name="bosses" size={28} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-bold uppercase tracking-wider text-crimson-300">Current Boss</span>
+                <span className="block truncate text-text-primary">{boss.title}</span>
+              </span>
+              <span className="w-28">
+                <ProgressBar size="sm" tone="crimson" value={boss.hp} label="Boss HP" valueText={`${boss.hp}% HP`} />
+                <span className="block text-right text-xs text-text-muted">{boss.hp}% HP</span>
+              </span>
+            </Link>
+          )}
           {adventure ? (
             <>
               <div className="flex flex-1 flex-col gap-4 pt-3 sm:flex-row sm:items-start">
@@ -136,10 +162,12 @@ export default async function WorldPage() {
                 <div className="flex-1">
                   <p className="q-title text-xl text-text-primary">No active adventure</p>
                   <p className="text-text-secondary">Your Quest Journal awaits. Every adventure starts somewhere.</p>
-                  <p className="mt-2 flex items-center gap-2 text-sm text-text-muted">
-                    <PixelIcon name="bosses" size={16} className="opacity-60" />
-                    No foe currently stands between you and your biggest goal.
-                  </p>
+                  {!boss && (
+                    <p className="mt-2 flex items-center gap-2 text-sm text-text-muted">
+                      <PixelIcon name="bosses" size={16} className="opacity-60" />
+                      No foe currently stands between you and your biggest goal.
+                    </p>
+                  )}
                 </div>
               </div>
               <GameLinkButton href="/quests/board" variant="primary" className="mt-4 w-full">
@@ -157,12 +185,54 @@ export default async function WorldPage() {
             action={<ViewAll href="/questlines" label="View all Questlines" />}
             divider
           />
-          <EmptyState
-            className="flex-1"
-            icon={<PixelIcon name="questlines" size={44} className="opacity-70" />}
-            title="No Questline charted"
-            message="Questlines turn your biggest goals into adventure paths of linked Quests."
-          />
+          {lineDetail ? (
+            <div className="flex flex-1 flex-col pt-3">
+              <p className="q-title text-xl leading-tight text-text-primary">{lineDetail.title}</p>
+              <p className="text-sm text-text-secondary">
+                {lineDetail.completed} / {lineDetail.total} Quests
+              </p>
+              <ol className="mt-2 flex flex-col gap-1">
+                {lineDetail.nodes.slice(0, 6).map((n) => {
+                  const st = nodeState(n);
+                  return (
+                    <li key={n.id} className="flex items-center gap-2 text-sm">
+                      <span
+                        aria-hidden
+                        className={
+                          st === "completed"
+                            ? "flex size-5 items-center justify-center rounded-full bg-moss-600 text-xs text-white"
+                            : st === "active"
+                              ? "size-5 rounded-full border-2 border-blue-300 bg-blue-600/40"
+                              : st === "available"
+                                ? "size-5 rounded-full border-2 border-gold-400"
+                                : "size-5 rounded-full border-2 border-stone-600"
+                        }
+                      >
+                        {st === "completed" ? "✓" : ""}
+                      </span>
+                      <span className={st === "completed" ? "text-text-muted" : st === "locked" ? "text-text-muted" : "text-text-primary"}>{n.title}</span>
+                      <span className="sr-only">({st})</span>
+                    </li>
+                  );
+                })}
+              </ol>
+              <GameLinkButton href={`/questlines?id=${lineDetail.id}`} variant="secondary" size="sm" className="mt-auto w-full">
+                View Questline →
+              </GameLinkButton>
+            </div>
+          ) : (
+            <EmptyState
+              className="flex-1"
+              icon={<PixelIcon name="questlines" size={44} className="opacity-70" />}
+              title="No Questline charted"
+              message="Questlines turn your biggest goals into adventure paths of linked Quests."
+              action={
+                <GameLinkButton href="/questlines/new" variant="secondary" size="sm">
+                  Chart a Questline
+                </GameLinkButton>
+              }
+            />
+          )}
         </GamePanel>
 
         <GamePanel as="section" labelledBy="skill-progression" className="flex flex-col p-4">

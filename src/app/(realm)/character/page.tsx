@@ -14,7 +14,7 @@ import { totalLevelMilestones } from "@/game/character";
 import { cx } from "@/lib/cx";
 import { formatNumber } from "@/lib/format";
 import { artUrl } from "@/server/art";
-import { loadCharacterSheet, loadQuestCounts, loadQuests } from "@/server/queries";
+import { loadCharacterSheet, loadCurrentBoss, loadDefeatedBosses, loadFocusStats, loadQuestCounts, loadQuests } from "@/server/queries";
 import { QuestCard } from "@/components/quests/QuestCard";
 
 export const metadata: Metadata = { title: "Character" };
@@ -49,7 +49,14 @@ function SealedPanel({ id, icon, title, message }: { id: string; icon: SpriteNam
 }
 
 export default async function CharacterPage() {
-  const [sheet, counts, active] = await Promise.all([loadCharacterSheet(), loadQuestCounts(), loadQuests("active")]);
+  const [sheet, counts, active, boss, defeated, focus] = await Promise.all([
+    loadCharacterSheet(),
+    loadQuestCounts(),
+    loadQuests("active"),
+    loadCurrentBoss(),
+    loadDefeatedBosses(),
+    loadFocusStats(),
+  ]);
   const milestones = totalLevelMilestones(sheet.totalLevel);
   const totalPct = (sheet.totalLevel / sheet.maxTotalLevel) * 100;
 
@@ -178,7 +185,23 @@ export default async function CharacterPage() {
                 </p>
               )}
             </GamePanel>
-            <SealedPanel id="char-boss" icon="bosses" title="Current Boss" message="Your Current Boss will appear here." />
+            <GamePanel as="section" labelledBy="char-boss" className="p-4">
+              <SectionHeader id="char-boss" icon={<PixelIcon name="bosses" size={22} />} title="Current Boss" divider />
+              {boss ? (
+                <Link href="/bosses" className="mt-3 block">
+                  <p className="q-title text-lg text-text-primary">{boss.title}</p>
+                  <ProgressBar className="mt-1" tone="crimson" value={boss.hp} label="Boss HP" valueText={`${boss.hp}% HP`} />
+                  <p className="text-sm text-text-muted">{boss.hp}% HP remaining</p>
+                </Link>
+              ) : (
+                <p className="mt-3 text-sm text-text-secondary">
+                  No Current Boss.{" "}
+                  <Link href="/bosses" className="text-blue-300 hover:underline">
+                    Choose one
+                  </Link>
+                </p>
+              )}
+            </GamePanel>
             <SealedPanel id="char-collection" icon="collection" title="Collection Log" message="Recent Collection items will appear here." />
           </div>
         </div>
@@ -232,6 +255,9 @@ export default async function CharacterPage() {
             <dl className="mt-2">
               {[
                 ["Quests completed", counts.completed],
+                ["Bosses defeated", defeated.length],
+                ["Focus sessions", focus.sessions],
+                ["Focus minutes", focus.minutes],
                 ["Total XP", sheet.totalXp],
                 ["GP earned", sheet.gp.lifetimeEarned],
                 ["GP spent", sheet.gp.lifetimeSpent],
@@ -243,7 +269,7 @@ export default async function CharacterPage() {
                 </div>
               ))}
             </dl>
-            <p className="mt-2 text-sm text-text-muted">Bosses, Focus hours, and more are recorded once those systems arrive.</p>
+            <p className="mt-2 text-sm text-text-muted">Achievements and Collection records arrive with those systems.</p>
           </GamePanel>
         </div>
       </div>

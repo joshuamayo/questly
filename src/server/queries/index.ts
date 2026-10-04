@@ -15,6 +15,9 @@ import {
 } from "./character-sheet";
 
 export { toCharacterStatus } from "./character-sheet";
+import { getCurrentBoss, listBossCandidates, listDefeatedBosses } from "./bosses";
+import { getQuestlineDetail, listQuestlines } from "./questlines";
+import { focusStats, getActiveSession } from "../focus/service";
 import {
   getCurrentAdventure,
   getQuestCounts,
@@ -62,3 +65,18 @@ export const loadTemplates = cache(async () => {
   await connection();
   return listTemplates(await getDb());
 });
+
+// ---------------------------------------------------------------------------
+// Questlines, Bosses, Focus
+// ---------------------------------------------------------------------------
+
+export type { QuestlineDetail, QuestlineNode, QuestlineSummary } from "./questlines";
+export type { BossView, DefeatedBoss } from "./bosses";
+
+export const loadQuestlines = cache(async () => listQuestlines(await getDb(), await currentId()));
+export const loadQuestlineDetail = cache(async (id: string) => getQuestlineDetail(await getDb(), await currentId(), id));
+export const loadCurrentBoss = cache(async () => getCurrentBoss(await getDb(), await currentId()));
+export const loadDefeatedBosses = cache(async () => listDefeatedBosses(await getDb(), await currentId()));
+export const loadBossCandidates = cache(async () => listBossCandidates(await getDb(), await currentId()));
+export const loadActiveFocusSession = cache(async () => getActiveSession(await getDb(), await currentId()));
+export const loadFocusStats = cache(async () => focusStats(await getDb(), await currentId()));

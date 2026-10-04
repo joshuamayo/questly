@@ -62,12 +62,18 @@ export const QUEST_REWARDS: Readonly<Record<QuestDifficulty, QuestReward>> = {
 };
 
 // ---------------------------------------------------------------------------
-// Future systems — configuration locations only. Not consumed in Phase 1.
+// Other systems
 // ---------------------------------------------------------------------------
 
-/** Focus XP (Product Spec §12.3). Consumed by Focus Mode in Phase 3. */
+/**
+ * Focus XP (Product Spec §12.3). Sessions shorter than the lowest tier earn
+ * no Focus XP. The daily cap and diminishing returns use a rolling 24-hour
+ * window so they work regardless of timezone.
+ */
 export const FOCUS_XP = {
   timerPresetsMinutes: [25, 50, 90],
+  minSessionMinutes: 5,
+  maxSessionMinutes: 180,
   /** Qualifying-minute tiers, highest first match wins. */
   sessionTiers: [
     { minMinutes: 90, xp: 100 },
@@ -80,7 +86,12 @@ export const FOCUS_XP = {
   diminishingReturns: { fullValueSessionsPerDay: 3, reducedMultiplier: 0.5 },
 } as const;
 
-/** Boss bounty defaults (Product Spec §13.1). Consumed by Bosses in Phase 3. */
+/**
+ * Boss bounty defaults (Product Spec §13.1): bonus GP for timely defeat.
+ * early = before the target date; byTarget = on the target date;
+ * byDeadline = after the target but by the hard deadline; late = after.
+ * Snapshotted onto the Boss when designated.
+ */
 export const BOSS_BOUNTY = {
   earlyGp: 30,
   byTargetGp: 20,
@@ -97,11 +108,21 @@ export const RESPAWN_THRESHOLDS = {
 /** Maximum recommended simultaneous Main Quests (Product Spec §8.5). */
 export const MAIN_QUEST_CAP = 3;
 
+/**
+ * Questline completion bonus, as a share of the snapshotted rewards of the
+ * Questline's Quests. Awarded once, to the Questline's Skill.
+ */
+export const QUESTLINE_BONUS = {
+  xpShare: 0.25,
+  gpShare: 0.25,
+} as const;
+
 export const GAME_BALANCE = {
   xpCurve: XP_CURVE,
   questRewards: QUEST_REWARDS,
   focusXp: FOCUS_XP,
   bossBounty: BOSS_BOUNTY,
+  questlineBonus: QUESTLINE_BONUS,
   respawnThresholds: RESPAWN_THRESHOLDS,
   mainQuestCap: MAIN_QUEST_CAP,
 } as const;

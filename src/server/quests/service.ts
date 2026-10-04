@@ -39,6 +39,8 @@ import {
   type QuestRow,
 } from "../db/schema";
 import { recordProgression } from "../progression/service";
+import { buildRequirementContext, trustedLocalDate } from "../requirements/service";
+import { onQuestCompleted, type LevelUpInfo, type PipelineResult } from "./pipeline";
 
 export class QuestNotFoundError extends GameRuleError {
   constructor() {
@@ -339,7 +341,11 @@ export type QuestCompletion = {
   duplicate: boolean;
   quest: { id: string; title: string; skillKey: SkillKey; difficulty: QuestDifficulty; templateKey: string | null };
   rewards: { xp: number; gp: number; qp: number };
-  levelUp: { skillKey: SkillKey; fromLevel: number; toLevel: number; levelsReached: number[] } | null;
+  /** Every Skill that levelled up (the Quest's Skill first, then any bonus). */
+  levelUps: LevelUpInfo[];
+  boss: PipelineResult["boss"];
+  unlocked: PipelineResult["unlocked"];
+  questline: PipelineResult["questline"];
   totals: { totalLevelBefore: number; totalLevelAfter: number; gpBalance: number; questPoints: number };
 };
 
@@ -347,7 +353,13 @@ export type QuestCompletion = {
  * Complete a Quest: award its snapshotted XP, GP, and QP exactly once.
  * Re-completing returns the original result with `duplicate: true`.
  */
-export async function completeQuest(db: Db, characterId: string, questId: string): Promise<QuestCompletion> {
+export async function completeQuest(
+  db: Db,
+  characterId: string,
+  questId: string,
+  options: { localDate?: string | null; now?: Date } = {},
+): Promise<QuestCompletion> {
+  const today = trustedLocalDate(options.localDate, options.now);
   return db.transaction(async (tx) => {
     const quest = await lockQuest(tx, characterId, questId);
     const skillKey = quest.skillKey as SkillKey;
@@ -370,7 +382,10 @@ export async function completeQuest(db: Db, characterId: string, questId: string
         duplicate: true,
         quest: summary,
         rewards,
-        levelUp: null,
+        levelUps: [],
+        boss: null,
+        unlocked: [],
+        questline: null,
         totals: { totalLevelBefore: level, totalLevelAfter: level, gpBalance: c.gpBalance, questPoints: c.questPoints },
       };
     }
@@ -384,11 +399,12 @@ export async function completeQuest(db: Db, characterId: string, questId: string
     }
 
     const totalLevelBefore = totalLevel(xpMap);
+    const ctxBefore = await buildRequirementContext(tx, characterId, today);
     const now = new Date();
     await tx.update(quests).set({ status: "COMPLETED", completedAt: now, updatedAt: now }).where(eq(quests.id, questId));
 
     const source = { sourceType: "QUEST" as const, sourceId: questId, metadata: { questTitle: quest.title, difficulty: quest.difficulty } };
-    let levelUp: QuestCompletion["levelUp"] = null;
+    const levelUps: LevelUpInfo[] = [];
     if (rewards.xp > 0) {
       const r = await recordProgression(tx, characterId, {
         kind: "XP",
@@ -398,9 +414,8 @@ export async function completeQuest(db: Db, characterId: string, questId: string
         idempotencyKey: `quest:${questId}:xp`,
       });
       if (r.xp?.leveledUp) {
-        levelUp = { skillKey, fromLevel: r.xp.previousLevel, toLevel: r.xp.newLevel, levelsReached: r.xp.levelsReached };
+        levelUps.push({ skillKey, fromLevel: r.xp.previousLevel, toLevel: r.xp.newLevel, levelsReached: r.xp.levelsReached });
       }
-      if (r.xp) xpMap[skillKey] = r.xp.newXp;
     }
     if (rewards.gp > 0) {
       await recordProgression(tx, characterId, { kind: "GP", amount: rewards.gp, ...source, idempotencyKey: `quest:${questId}:gp` });
@@ -410,13 +425,25 @@ export async function completeQuest(db: Db, characterId: string, questId: string
     }
     await logEvent(tx, characterId, "QUEST_COMPLETED", questId, { title: quest.title, ...rewards, skillKey });
 
+    const pipeline = await onQuestCompleted(tx, characterId, { ...quest, status: "COMPLETED", completedAt: now }, today, ctxBefore);
+    levelUps.push(...pipeline.levelUps);
+
     const [c] = await tx.select().from(characters).where(eq(characters.id, characterId));
+    const afterRows = await tx.select().from(characterSkills).where(eq(characterSkills.characterId, characterId));
     return {
       duplicate: false,
       quest: summary,
       rewards,
-      levelUp,
-      totals: { totalLevelBefore, totalLevelAfter: totalLevel(xpMap), gpBalance: c.gpBalance, questPoints: c.questPoints },
+      levelUps,
+      boss: pipeline.boss,
+      unlocked: pipeline.unlocked,
+      questline: pipeline.questline,
+      totals: {
+        totalLevelBefore,
+        totalLevelAfter: totalLevel(Object.fromEntries(afterRows.map((r) => [r.skillKey, r.xp]))),
+        gpBalance: c.gpBalance,
+        questPoints: c.questPoints,
+      },
     };
   });
 }

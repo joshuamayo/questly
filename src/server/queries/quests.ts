@@ -8,7 +8,8 @@ import { ACTIVE_QUEST_STATUSES, questProgress, type QuestPriority, type QuestPro
 import type { QuestDifficulty, SkillKey } from "@/game/vocabulary";
 import { applyXpGain } from "@/game/xp";
 import type { Db } from "../db/client";
-import { activityEvents, characterSkills, questObjectives, questTemplates, quests, skills } from "../db/schema";
+import { activityEvents, characterSkills, questObjectives, questTemplates, questlines, quests, skills } from "../db/schema";
+import { buildRequirementContext, lockStates, serverToday, type LockState } from "../requirements/service";
 import { QuestNotFoundError } from "../quests/service";
 
 export type QuestSummary = {
@@ -35,6 +36,10 @@ export type QuestObjectiveView = { id: string; title: string; position: number; 
 
 export type QuestDetail = QuestSummary & {
   notes: string;
+  isBoss: boolean;
+  questline: { id: string; title: string } | null;
+  /** Lock state for not-yet-accepted Questline Quests. */
+  lock: LockState | null;
   templateKey: string | null;
   objectives: QuestObjectiveView[];
   activity: { id: string; type: string; text: string; createdAt: string }[];
@@ -129,6 +134,10 @@ const EVENT_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
   QUEST_COMPLETED: (p) => `Quest complete! +${p.xp} XP, +${p.gp} GP, +${p.qp} QP.`,
   QUEST_ABANDONED: () => "Quest abandoned. No rewards were given.",
   QUEST_RESTORED: () => "Quest restored.",
+  BOSS_DESIGNATED: () => "Designated as the Current Boss.",
+  BOSS_DEFEATED: (p) => (Number(p.bountyGp) > 0 ? `Boss defeated! Bounty +${p.bountyGp} GP.` : "Boss defeated!"),
+  NEW_QUEST_AVAILABLE: () => "New Quest available.",
+  FOCUS_SESSION_COMPLETED: (p) => `Focus session: ${p.minutes} min${Number(p.xp) > 0 ? `, +${p.xp} Focus XP` : ""}.`,
 };
 
 export async function getQuestDetail(db: Db, characterId: string, questId: string): Promise<QuestDetail> {
@@ -149,9 +158,20 @@ export async function getQuestDetail(db: Db, characterId: string, questId: strin
       .where(and(eq(characterSkills.characterId, characterId), eq(characterSkills.skillKey, row.skillKey))),
   ]);
   const gain = row.status !== "COMPLETED" && row.rewardXp > 0 ? applyXpGain(skillRow[0]?.xp ?? 0, row.rewardXp) : null;
+  const [line] = row.questlineId
+    ? await db.select({ id: questlines.id, title: questlines.title }).from(questlines).where(eq(questlines.id, row.questlineId))
+    : [];
+  let lock: LockState | null = null;
+  if (row.status === "AVAILABLE") {
+    const ctx = await buildRequirementContext(db, characterId, serverToday());
+    lock = (await lockStates(db, characterId, [row.id], ctx)).get(row.id) ?? null;
+  }
   return {
     ...summary,
     notes: row.notes,
+    isBoss: row.isBoss,
+    questline: line ?? null,
+    lock,
     templateKey: row.templateKey,
     objectives: objectives.map((o) => ({
       id: o.id,

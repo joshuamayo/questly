@@ -193,6 +193,30 @@ export const questTemplates = pgTable("quest_templates", {
   sortOrder: integer("sort_order").notNull(),
 });
 
+export const questlines = pgTable(
+  "questlines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    /** Skill that receives the Questline completion bonus XP. */
+    skillKey: text("skill_key")
+      .notNull()
+      .references(() => skills.key),
+    icon: text("icon").notNull().default("questlines"),
+    status: text("status").notNull().default("ACTIVE"),
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("questlines_status_valid", sql`${t.status} IN ('ACTIVE', 'COMPLETED', 'ARCHIVED')`),
+    index("questlines_character_idx").on(t.characterId),
+  ],
+);
+
 export const quests = pgTable(
   "quests",
   {
@@ -216,6 +240,12 @@ export const quests = pgTable(
     rewardGp: integer("reward_gp").notNull(),
     rewardQp: integer("reward_qp").notNull(),
     notes: text("notes").notNull().default(""),
+    questlineId: uuid("questline_id").references(() => questlines.id, { onDelete: "set null" }),
+    /** Boss designation. Only one active Boss per character (partial unique index). */
+    isBoss: boolean("is_boss").notNull().default(false),
+    bossDesignatedAt: timestamp("boss_designated_at", { withTimezone: true, mode: "date" }),
+    /** Bounty configuration snapshotted when the Boss was designated. */
+    bounty: jsonb("bounty"),
     acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
     completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
     abandonedAt: timestamp("abandoned_at", { withTimezone: true, mode: "date" }),
@@ -235,6 +265,76 @@ export const quests = pgTable(
     check("quests_rewards_non_negative", sql`${t.rewardXp} >= 0 AND ${t.rewardGp} >= 0 AND ${t.rewardQp} >= 0`),
     check("quests_completed_has_timestamp", sql`(${t.status} = 'COMPLETED') = (${t.completedAt} IS NOT NULL)`),
     index("quests_character_status_idx").on(t.characterId, t.status),
+    index("quests_questline_idx").on(t.questlineId),
+    uniqueIndex("quests_one_active_boss")
+      .on(t.characterId)
+      .where(sql`${t.isBoss} AND ${t.status} IN ('ACCEPTED', 'IN_PROGRESS', 'ON_HOLD')`),
+  ],
+);
+
+/** Questline dependency edges: the child unlocks when all its parents are complete. */
+export const questDependencies = pgTable(
+  "quest_dependencies",
+  {
+    parentQuestId: uuid("parent_quest_id")
+      .notNull()
+      .references(() => quests.id, { onDelete: "cascade" }),
+    childQuestId: uuid("child_quest_id")
+      .notNull()
+      .references(() => quests.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.parentQuestId, t.childQuestId] }),
+    check("quest_dependencies_no_self", sql`${t.parentQuestId} <> ${t.childQuestId}`),
+  ],
+);
+
+export const questRequirements = pgTable(
+  "quest_requirements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    questId: uuid("quest_id")
+      .notNull()
+      .references(() => quests.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    /** Quest id, Questline id, Skill key, Collection item key, or ISO date depending on type. */
+    reference: text("reference"),
+    requiredValue: integer("required_value"),
+    /** Description for manual requirements. */
+    label: text("label"),
+    manualMet: boolean("manual_met").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check(
+      "quest_requirements_type_valid",
+      sql`${t.type} IN ('QUEST_COMPLETED', 'QUESTLINE_COMPLETED', 'SKILL_LEVEL', 'QUEST_POINTS', 'COMBAT_POINTS', 'COLLECTION_ITEM', 'DATE_REACHED', 'MANUAL')`,
+    ),
+    index("quest_requirements_quest_idx").on(t.questId),
+  ],
+);
+
+export const focusSessions = pgTable(
+  "focus_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    questId: uuid("quest_id").references(() => quests.id, { onDelete: "set null" }),
+    objectiveId: uuid("objective_id").references(() => questObjectives.id, { onDelete: "set null" }),
+    plannedMinutes: integer("planned_minutes").notNull(),
+    status: text("status").notNull().default("ACTIVE"),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true, mode: "date" }),
+    qualifyingMinutes: integer("qualifying_minutes").notNull().default(0),
+    focusXpAwarded: integer("focus_xp_awarded").notNull().default(0),
+  },
+  (t) => [
+    check("focus_sessions_status_valid", sql`${t.status} IN ('ACTIVE', 'COMPLETED', 'CANCELLED')`),
+    check("focus_sessions_minutes_valid", sql`${t.plannedMinutes} BETWEEN 5 AND 180`),
+    uniqueIndex("focus_sessions_one_active").on(t.characterId).where(sql`${t.status} = 'ACTIVE'`),
+    index("focus_sessions_character_started_idx").on(t.characterId, t.startedAt),
   ],
 );
 
@@ -254,6 +354,9 @@ export const questObjectives = pgTable(
 );
 
 export type QuestRow = typeof quests.$inferSelect;
+export type QuestlineRow = typeof questlines.$inferSelect;
+export type QuestRequirementRow = typeof questRequirements.$inferSelect;
+export type FocusSessionRow = typeof focusSessions.$inferSelect;
 export type QuestObjectiveRow = typeof questObjectives.$inferSelect;
 export type QuestTemplateRow = typeof questTemplates.$inferSelect;
 

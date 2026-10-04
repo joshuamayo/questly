@@ -11,6 +11,9 @@
 - **Phase 2 — Core Quest Loop:** Quest Journal, Quest Board (templates), Create & Accept Quest, Active Quest
   (Quest Journal, Current Step, objectives, notes, status), idempotent completion with snapshotted rewards,
   Quest Complete + Level Up celebration, World Current Adventure.
+- **Phase 3 — Focus + Questlines:** Focus Mode (server-timed sessions, capped Focus XP with diminishing returns),
+  Questlines (builder, adventure-path map, dependency unlocking, completion bonus), requirements engine and locked
+  Quests, Bosses (one Current Boss, HP from objectives, snapshotted bounty, Boss Defeated celebration).
 
 ## Quick start
 
